@@ -1,0 +1,6 @@
+data/
+*.db
+*.zip
+snapshots/
+__pycache__/
+.env
