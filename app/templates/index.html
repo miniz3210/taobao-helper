@@ -507,20 +507,26 @@
 
         function startQRPolling() {
             // Poll every 2 seconds
+            console.log('Starting QR polling...');
             qrPollingInterval = setInterval(async () => {
                 try {
+                    console.log('Polling login status...');
                     const response = await axios.get('/api/login/qr/status');
+                    console.log('Login status response:', response.data);
                     
                     if (response.data.logged_in) {
                         // Success!
+                        console.log('Login successful! Cookies:', response.data.cookies ? 'received' : 'missing');
                         stopQRPolling();
                         document.getElementById('qr-status').classList.add('hidden');
                         document.getElementById('qr-success').classList.remove('hidden');
                         
                         // Sync orders with the cookies
+                        console.log('Starting order sync...');
                         const syncResponse = await axios.post('/api/scrape', {
                             cookies: response.data.cookies
                         });
+                        console.log('Sync response:', syncResponse.data);
                         
                         setTimeout(() => {
                             closeLoginModal();
@@ -528,9 +534,12 @@
                             loadOrders();
                             loadStats();
                         }, 1500);
+                    } else {
+                        console.log('Still waiting for login...');
                     }
                 } catch (error) {
                     console.error('Polling error:', error);
+                    console.error('Error details:', error.response?.data);
                 }
             }, 2000);
         }

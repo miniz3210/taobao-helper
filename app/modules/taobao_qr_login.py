@@ -134,7 +134,16 @@ class TaobaoQRLogin:
         Check if user has scanned QR code and logged in
         Returns: {"status": str, "cookies": str, "message": str}
         """
-        if not self.page or self.login_status != "pending":
+        if not self.page:
+            print("No page instance available")
+            return {
+                "status": "idle",
+                "logged_in": False,
+                "message": "未在登入流程中"
+            }
+        
+        if self.login_status != "pending":
+            print(f"Login status is not pending: {self.login_status}")
             return {
                 "status": self.login_status,
                 "logged_in": False,
@@ -144,6 +153,7 @@ class TaobaoQRLogin:
         try:
             # Get current cookies
             cookies = await self.page.context.cookies()
+            print(f"Current cookies count: {len(cookies)}")
             
             # Check for Taobao session cookies
             cookie_dict = {cookie['name']: cookie['value'] for cookie in cookies}
@@ -151,31 +161,34 @@ class TaobaoQRLogin:
             # Key session cookies that indicate successful login
             session_indicators = ['cookie2', 'unb', 't', '_tb_token_']
             
-            has_session = any(key in cookie_dict for key in session_indicators)
+            found_indicators = [key for key in session_indicators if key in cookie_dict]
+            has_session = len(found_indicators) > 0
+            
+            print(f"Session indicators found: {found_indicators}")
             
             if has_session:
-                # Check if we're redirected away from login page
-                current_url = self.page.url
+                # Successful login detected!
+                print(f"Session cookies detected: {list(cookie_dict.keys())}")
                 
-                if 'login.taobao.com' not in current_url or 'my.taobao.com' in current_url:
-                    # Successful login!
-                    self.login_status = "success"
-                    self.cookies_dict = cookie_dict
-                    
-                    # Save cookies to file
-                    self._save_cookies(cookies)
-                    
-                    # Format cookies as string
-                    cookies_str = "; ".join([f"{k}={v}" for k, v in cookie_dict.items()])
-                    
-                    await self.cleanup()
-                    
-                    return {
-                        "status": "success",
-                        "logged_in": True,
-                        "cookies": cookies_str,
-                        "message": "登入成功！"
-                    }
+                self.login_status = "success"
+                self.cookies_dict = cookie_dict
+                
+                # Save cookies to file
+                self._save_cookies(cookies)
+                
+                # Format cookies as string
+                cookies_str = "; ".join([f"{k}={v}" for k, v in cookie_dict.items()])
+                
+                print(f"Login successful, returning cookies (length: {len(cookies_str)})")
+                
+                await self.cleanup()
+                
+                return {
+                    "status": "success",
+                    "logged_in": True,
+                    "cookies": cookies_str,
+                    "message": "登入成功！"
+                }
             
             # Still waiting for scan
             return {
@@ -186,6 +199,8 @@ class TaobaoQRLogin:
             
         except Exception as e:
             print(f"Check login status error: {e}")
+            import traceback
+            traceback.print_exc()
             return {
                 "status": "pending",
                 "logged_in": False,
