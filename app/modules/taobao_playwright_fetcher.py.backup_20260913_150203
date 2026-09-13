@@ -197,16 +197,16 @@ class TaobaoPlaywrightFetcher:
             # Navigate to orders page
             print("🌐 Loading buyertrade.taobao.com...")
             
-            response = await page.goto(
+            response = await self.page.goto(
                 'https://buyertrade.taobao.com/trade/itemlist/list_bought_items.htm',
                 wait_until='domcontentloaded',
                 timeout=30000
             )
             
             # Wait for page to settle
-            await page.wait_for_timeout(3000)
+            await self.page.wait_for_timeout(3000)
             
-            current_url = page.url
+            current_url = self.page.url
             print(f"📍 Current URL: {current_url}")
             
             # Check 1: Redirect to login page
@@ -249,7 +249,7 @@ class TaobaoPlaywrightFetcher:
             traceback.print_exc()
             return {"success": False, "error_code": "NAVIGATION_ERROR"}
     
-    async def _detect_antibot_elements(self, page) -> bool:
+    async def _detect_antibot_elements(self) -> bool:
         """
         Detect common Taobao anti-bot and captcha elements
         
@@ -268,7 +268,7 @@ class TaobaoPlaywrightFetcher:
         
         for selector in sliding_captcha_selectors:
             try:
-                element = await page.query_selector(selector)
+                element = await self.page.query_selector(selector)
                 if element:
                     is_visible = await element.is_visible()
                     if is_visible:
@@ -279,7 +279,7 @@ class TaobaoPlaywrightFetcher:
         
         # Check for login iframe
         try:
-            iframes = await page.query_selector_all('iframe')
+            iframes = await self.page.query_selector_all('iframe')
             for iframe in iframes:
                 src = await iframe.get_attribute('src')
                 if src and 'login' in src.lower():
@@ -290,7 +290,7 @@ class TaobaoPlaywrightFetcher:
         
         # Check page content for verification keywords
         try:
-            content = await page.content()
+            content = await self.page.content()
             antibot_keywords = [
                 '请滑动验证',
                 '验证码',
@@ -310,7 +310,7 @@ class TaobaoPlaywrightFetcher:
         
         return False
     
-    async def _verify_authenticated_session(self, page) -> bool:
+    async def _verify_authenticated_session(self) -> bool:
         """
         Verify that the user is authenticated by looking for user-specific elements
         
@@ -331,7 +331,7 @@ class TaobaoPlaywrightFetcher:
         
         for selector in user_selectors:
             try:
-                element = await page.query_selector(selector)
+                element = await self.page.query_selector(selector)
                 if element:
                     text = await element.text_content()
                     if text and len(text.strip()) > 0:
@@ -349,7 +349,7 @@ class TaobaoPlaywrightFetcher:
         
         for selector in logout_selectors:
             try:
-                element = await page.query_selector(selector)
+                element = await self.page.query_selector(selector)
                 if element:
                     print(f"✅ Found logout button: {selector}")
                     return True
@@ -357,11 +357,11 @@ class TaobaoPlaywrightFetcher:
                 continue
         
         # Check URL patterns - if we have order params, likely authenticated
-        current_url = page.url
+        current_url = self.page.url
         if 'buyertrade.taobao.com' in current_url and 'login' not in current_url.lower():
             # Do a content check for login forms
             try:
-                content = await page.content()
+                content = await self.page.content()
                 login_indicators = [
                     'loginFormData',
                     'TPL_username',
@@ -379,7 +379,7 @@ class TaobaoPlaywrightFetcher:
         
         return False
     
-    async def _verify_orders_container(self, page) -> bool:
+    async def _verify_orders_container(self) -> bool:
         """
         Verify that orders container or empty state is present
         
@@ -399,7 +399,7 @@ class TaobaoPlaywrightFetcher:
         
         for selector in container_selectors:
             try:
-                element = await page.query_selector(selector)
+                element = await self.page.query_selector(selector)
                 if element:
                     print(f"✅ Found orders container: {selector}")
                     return True
@@ -408,7 +408,7 @@ class TaobaoPlaywrightFetcher:
         
         # Check for empty state messages
         try:
-            content = await page.text_content('body')
+            content = await self.page.text_content('body')
             empty_state_keywords = [
                 '暂无订单',
                 '沒有訂單',
@@ -426,7 +426,7 @@ class TaobaoPlaywrightFetcher:
         
         return False
     
-    async def _save_debug_state(self, page, reason: str):
+    async def _save_debug_state(self, reason: str):
         """
         Save full-page screenshot and HTML for debugging
         
@@ -438,12 +438,12 @@ class TaobaoPlaywrightFetcher:
             
             # Save screenshot
             screenshot_path = f"/app/data/interception_state_{reason}_{timestamp}.png"
-            await page.screenshot(path=screenshot_path, full_page=True)
+            await self.page.screenshot(path=screenshot_path, full_page=True)
             print(f"📸 Screenshot saved: {screenshot_path}")
             
             # Save HTML
             html_path = f"/app/data/interception_state_{reason}_{timestamp}.html"
-            content = await page.content()
+            content = await self.page.content()
             with open(html_path, 'w', encoding='utf-8') as f:
                 f.write(content)
             print(f"💾 HTML saved: {html_path}")
@@ -451,7 +451,7 @@ class TaobaoPlaywrightFetcher:
             # Save current URL for reference
             url_info_path = f"/app/data/interception_state_{reason}_{timestamp}_url.txt"
             with open(url_info_path, 'w', encoding='utf-8') as f:
-                f.write(f"URL: {page.url}\n")
+                f.write(f"URL: {self.page.url}\n")
                 f.write(f"Timestamp: {datetime.now().isoformat()}\n")
                 f.write(f"Reason: {reason}\n")
             print(f"📋 URL info saved: {url_info_path}")
@@ -476,16 +476,16 @@ class TaobaoPlaywrightFetcher:
         except Exception as e:
             print(f"⚠️  Failed to purge cookies: {e}")
     
-    async def _parse_orders_from_current_page(self, page, tab_name: str) -> List[Dict]:
+    async def _parse_orders_from_current_page(self, tab_name: str) -> List[Dict]:
         """Parse orders from the current page"""
         orders = []
         
         try:
             # Get page content
-            content = await page.content()
+            content = await self.page.content()
             
             # Try to find order containers using JavaScript
-            order_elements = await page.query_selector_all('''
+            order_elements = await self.page.query_selector_all('''
                 div[class*="order-container"],
                 table.item-list tbody tr,
                 .js-order-container,
@@ -642,17 +642,17 @@ class TaobaoPlaywrightFetcher:
         except Exception as e:
             return None
     
-    async def _cleanup(self, playwright, browser, page):
+    async def cleanup(self):
         """Clean up resources"""
         try:
             if self.page:
-                await page.close()
-                pass
+                await self.page.close()
+                self.page = None
             if self.browser:
                 await self.browser.close()
-                pass
+                self.browser = None
             if self.playwright:
                 await self.playwright.stop()
-                pass
+                self.playwright = None
         except Exception as e:
             print(f"Cleanup error: {e}")
