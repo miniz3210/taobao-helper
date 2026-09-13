@@ -26,6 +26,7 @@ from app.modules.consolidation_manager import ConsolidationManager
 from app.modules.ai_assistant import AIQueryAssistant
 from app.modules.taobao_qr_login import TaobaoQRLogin
 from app.modules.taobao_playwright_fetcher import TaobaoPlaywrightFetcher
+from app.modules.taobao_account_login import TaobaoAccountLogin
 
 
 # Initialize FastAPI app
@@ -56,6 +57,7 @@ notes_generator = NotesGenerator()
 consolidation_manager = ConsolidationManager()
 ai_assistant = AIQueryAssistant()
 qr_login = TaobaoQRLogin()
+account_login = TaobaoAccountLogin()
 playwright_fetcher = TaobaoPlaywrightFetcher()
 
 
@@ -73,6 +75,11 @@ class OrderCreate(BaseModel):
 
 class ScrapeRequest(BaseModel):
     cookies: str
+
+
+class AccountLoginRequest(BaseModel):
+    username: str
+    password: str
 
 
 class AIQueryRequest(BaseModel):
@@ -244,6 +251,13 @@ async def delayed_cleanup():
 async def cancel_qr_login():
     """Cancel QR code login"""
     result = await qr_login.cancel_login()
+    return result
+
+
+@app.post("/api/login/account")
+async def login_with_account(request: AccountLoginRequest):
+    """Login with username and password"""
+    result = await account_login.login_with_password(request.username, request.password)
     return result
 
 

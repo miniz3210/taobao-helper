@@ -215,37 +215,90 @@
             </div>
         </main>
 
-        <!-- QR Code Login Modal -->
+        <!-- Login Modal -->
         <div id="login-modal" class="modal hidden">
             <div class="modal-content max-w-md">
-                <h3 class="text-xl font-bold mb-4">📱 淘寶 QR Code 登入</h3>
+                <h3 class="text-xl font-bold mb-4">🔐 淘寶登入</h3>
                 
-                <!-- QR Code Display -->
-                <div id="qr-container" class="text-center mb-4">
-                    <div id="qr-loading" class="py-8">
-                        <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
-                        <p class="mt-4 text-gray-600">正在生成 QR Code...</p>
+                <!-- Login Method Tabs -->
+                <div class="flex gap-2 mb-4 border-b">
+                    <button onclick="switchLoginMethod('qr')" id="qr-tab" class="px-4 py-2 border-b-2 border-orange-600 font-semibold">
+                        QR Code 登入
+                    </button>
+                    <button onclick="switchLoginMethod('account')" id="account-tab" class="px-4 py-2 font-semibold text-gray-500">
+                        帳號密碼登入
+                    </button>
+                </div>
+                
+                <!-- QR Code Login -->
+                <div id="qr-login-section">
+                    <div id="qr-container" class="text-center mb-4">
+                        <div id="qr-loading" class="py-8">
+                            <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
+                            <p class="mt-4 text-gray-600">正在生成 QR Code...</p>
+                        </div>
+                        <img id="qr-image" class="hidden mx-auto max-w-full rounded-lg shadow-lg" alt="QR Code">
                     </div>
-                    <img id="qr-image" class="hidden mx-auto max-w-full rounded-lg shadow-lg" alt="QR Code">
+                    
+                    <div id="qr-status" class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4 hidden">
+                        <p class="text-blue-700 font-semibold">📱 請使用淘寶 App 掃描 QR Code</p>
+                        <p class="text-blue-600 text-sm mt-1">開啟淘寶 App → 掃一掃 → 掃描螢幕上的 QR Code</p>
+                    </div>
+                    
+                    <div id="qr-success" class="bg-green-50 border-l-4 border-green-400 p-4 mb-4 hidden">
+                        <p class="text-green-700 font-semibold">✅ 登入成功！</p>
+                        <p class="text-green-600 text-sm mt-1">正在同步訂單資料...</p>
+                    </div>
+                    
+                    <div id="qr-error" class="bg-red-50 border-l-4 border-red-400 p-4 mb-4 hidden">
+                        <p class="text-red-700 font-semibold">❌ 登入失敗</p>
+                        <p id="qr-error-message" class="text-red-600 text-sm mt-1"></p>
+                    </div>
                 </div>
                 
-                <!-- Status Message -->
-                <div id="qr-status" class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4 hidden">
-                    <p class="text-blue-700 font-semibold">📱 請使用淘寶 App 掃描 QR Code</p>
-                    <p class="text-blue-600 text-sm mt-1">開啟淘寶 App → 掃一掃 → 掃描螢幕上的 QR Code</p>
+                <!-- Account Login -->
+                <div id="account-login-section" class="hidden">
+                    <form onsubmit="loginWithAccount(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">用戶名 / 手機號 / 郵箱</label>
+                            <input 
+                                type="text" 
+                                id="account-username" 
+                                class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-orange-500" 
+                                placeholder="請輸入帳號"
+                                required
+                            >
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">密碼</label>
+                            <input 
+                                type="password" 
+                                id="account-password" 
+                                class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-orange-500" 
+                                placeholder="請輸入密碼"
+                                required
+                            >
+                        </div>
+                        
+                        <div id="account-status" class="hidden"></div>
+                        
+                        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-3 text-sm">
+                            <p class="text-yellow-700">⚠️ 注意：帳號密碼登入比 QR Code 登入更穩定，但可能需要驗證碼。Cookie 會保存供後續使用。</p>
+                        </div>
+                        
+                        <div class="flex justify-end gap-2">
+                            <button type="button" onclick="closeLoginModal()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
+                                取消
+                            </button>
+                            <button type="submit" id="account-login-btn" class="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700">
+                                登入
+                            </button>
+                        </div>
+                    </form>
                 </div>
                 
-                <div id="qr-success" class="bg-green-50 border-l-4 border-green-400 p-4 mb-4 hidden">
-                    <p class="text-green-700 font-semibold">✅ 登入成功！</p>
-                    <p class="text-green-600 text-sm mt-1">正在同步訂單資料...</p>
-                </div>
-                
-                <div id="qr-error" class="bg-red-50 border-l-4 border-red-400 p-4 mb-4 hidden">
-                    <p class="text-red-700 font-semibold">❌ 登入失敗</p>
-                    <p id="qr-error-message" class="text-red-600 text-sm mt-1"></p>
-                </div>
-                
-                <div class="flex justify-end gap-2">
+                <!-- QR Login Buttons -->
+                <div id="qr-buttons" class="flex justify-end gap-2">
                     <button onclick="closeLoginModal()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
                         取消
                     </button>
@@ -605,6 +658,120 @@
             document.getElementById('qr-status').classList.add('hidden');
             document.getElementById('qr-error').classList.remove('hidden');
             document.getElementById('qr-error-message').textContent = message;
+        }
+
+        // Login method switching
+        function switchLoginMethod(method) {
+            if (method === 'qr') {
+                document.getElementById('qr-login-section').classList.remove('hidden');
+                document.getElementById('account-login-section').classList.add('hidden');
+                document.getElementById('qr-buttons').classList.remove('hidden');
+                document.getElementById('qr-tab').classList.add('border-b-2', 'border-orange-600', 'text-black');
+                document.getElementById('qr-tab').classList.remove('text-gray-500');
+                document.getElementById('account-tab').classList.remove('border-b-2', 'border-orange-600', 'text-black');
+                document.getElementById('account-tab').classList.add('text-gray-500');
+                
+                // Start QR login if not already started
+                if (document.getElementById('qr-image').classList.contains('hidden') && 
+                    document.getElementById('qr-loading').classList.contains('hidden')) {
+                    showLoginModal();
+                }
+            } else if (method === 'account') {
+                document.getElementById('qr-login-section').classList.add('hidden');
+                document.getElementById('account-login-section').classList.remove('hidden');
+                document.getElementById('qr-buttons').classList.add('hidden');
+                stopQRPolling();
+                document.getElementById('account-tab').classList.add('border-b-2', 'border-orange-600', 'text-black');
+                document.getElementById('account-tab').classList.remove('text-gray-500');
+                document.getElementById('qr-tab').classList.remove('border-b-2', 'border-orange-600', 'text-black');
+                document.getElementById('qr-tab').classList.add('text-gray-500');
+            }
+        }
+
+        // Account login
+        async function loginWithAccount(event) {
+            event.preventDefault();
+            
+            const username = document.getElementById('account-username').value;
+            const password = document.getElementById('account-password').value;
+            const statusDiv = document.getElementById('account-status');
+            const loginBtn = document.getElementById('account-login-btn');
+            
+            if (!username || !password) {
+                showAccountStatus('請輸入帳號和密碼', 'error');
+                return;
+            }
+            
+            // Disable button and show loading
+            loginBtn.disabled = true;
+            loginBtn.innerHTML = '<span class="inline-block animate-spin mr-2">⏳</span> 登入中...';
+            showAccountStatus('正在登入淘寶帳號...', 'loading');
+            
+            try {
+                console.log('Attempting account login...');
+                const response = await axios.post('/api/login/account', {
+                    username: username,
+                    password: password
+                });
+                
+                console.log('Login response:', response.data);
+                
+                if (response.data.success) {
+                    showAccountStatus('登入成功！正在同步訂單...', 'success');
+                    
+                    // Sync orders with the cookies
+                    try {
+                        const syncResponse = await axios.post('/api/scrape', {
+                            cookies: response.data.cookies
+                        });
+                        
+                        setTimeout(() => {
+                            closeLoginModal();
+                            alert(`帳號登入並同步成功！\n新訂單：${syncResponse.data.new_orders}\n更新訂單：${syncResponse.data.updated_orders}`);
+                            loadOrders();
+                            loadStats();
+                        }, 1500);
+                    } catch (syncError) {
+                        console.error('Sync failed:', syncError);
+                        showAccountStatus('登入成功但同步失敗。Cookies 已儲存，請稍後手動同步。', 'warning');
+                        setTimeout(() => {
+                            closeLoginModal();
+                        }, 2000);
+                    }
+                } else {
+                    showAccountStatus(response.data.message || '登入失敗，請檢查帳號密碼', 'error');
+                    loginBtn.disabled = false;
+                    loginBtn.textContent = '登入';
+                }
+            } catch (error) {
+                console.error('Account login error:', error);
+                const errorMsg = error.response?.data?.message || error.message || '登入錯誤';
+                showAccountStatus('登入失敗：' + errorMsg, 'error');
+                loginBtn.disabled = false;
+                loginBtn.textContent = '登入';
+            }
+        }
+
+        function showAccountStatus(message, type) {
+            const statusDiv = document.getElementById('account-status');
+            statusDiv.classList.remove('hidden');
+            
+            const typeClasses = {
+                'loading': 'bg-blue-50 border-l-4 border-blue-400',
+                'success': 'bg-green-50 border-l-4 border-green-400',
+                'error': 'bg-red-50 border-l-4 border-red-400',
+                'warning': 'bg-yellow-50 border-l-4 border-yellow-400'
+            };
+            
+            const textClasses = {
+                'loading': 'text-blue-700',
+                'success': 'text-green-700',
+                'error': 'text-red-700',
+                'warning': 'text-yellow-700'
+            };
+            
+            statusDiv.className = `p-4 mb-4 ${typeClasses[type] || typeClasses.loading}`;
+            statusDiv.innerHTML = `<p class="${textClasses[type] || textClasses.loading} font-semibold">${message}</p>`;
         }
 
         // Sync with saved cookies
