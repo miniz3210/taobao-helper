@@ -487,7 +487,9 @@ class TaobaoPlaywrightFetcher:
                 div[class*="order-container"],
                 table.item-list tbody tr,
                 .js-order-container,
-                div[class*="bought-wrapper-mod__container"]
+                div[class*="bought-wrapper-mod__container"],
+                div[class*="subOrder"],
+                div[id*="tp-bought-root"]
             ''')
             
             print(f"Found {len(order_elements)} potential order elements")
@@ -501,8 +503,55 @@ class TaobaoPlaywrightFetcher:
                     # Silently skip malformed elements
                     continue
             
+            # Fallback: If no structured orders found, use regex extraction like QR login
+            if not orders:
+                print("⚠️  Structured parsing found 0 orders, trying regex fallback...")
+                orders = self._extract_orders_by_regex(content, tab_name)
+                if orders:
+                    print(f"✅ Regex fallback found {len(orders)} orders")
+            
         except Exception as e:
             print(f"Error parsing orders from page: {e}")
+        
+        return orders
+    
+    def _extract_orders_by_regex(self, content: str, tab_name: str) -> List[Dict]:
+        """
+        Extract orders using regex pattern matching (fallback method)
+        Similar to QR login extraction
+        """
+        orders = []
+        
+        try:
+            # Find all order IDs (15+ digit numbers)
+            order_ids = set(re.findall(r'\b(\d{15,})\b', content))
+            
+            print(f"Regex found {len(order_ids)} unique order IDs")
+            
+            # Map tab to status
+            status_mapping = {
+                'all': 'pending_shipment',
+                'waitPay': 'pending_payment',
+                'waitSend': 'pending_shipment',
+                'waitConfirm': 'in_transit',
+                'waitRate': 'received'
+            }
+            
+            for order_id in list(order_ids)[:100]:  # Limit to 100 orders per tab
+                orders.append({
+                    'order_id': order_id,
+                    'item_title': f'Order {order_id[:8]}...',
+                    'price': 0.0,
+                    'quantity': 1,
+                    'current_status': status_mapping.get(tab_name, 'pending_shipment'),
+                    'seller_name': None,
+                    'seller_express_no': None,
+                    'snapshot_url': None,
+                    'order_date': None
+                })
+            
+        except Exception as e:
+            print(f"Regex extraction error: {e}")
         
         return orders
     
