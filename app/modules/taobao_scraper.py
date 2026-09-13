@@ -66,18 +66,25 @@ class TaobaoScraper:
         all_orders = []
         cookie_dict = self._parse_cookies(cookies)
         
+        print(f"\n{'='*80}")
         print(f"Starting Taobao scrape with cookies (length: {len(cookies)})")
+        print(f"Cookie keys: {list(cookie_dict.keys())[:10]}")  # Show first 10 cookie names
+        print(f"{'='*80}\n")
         
         # Iterate through all tabs
         for tab_name, tab_config in self.TAB_CONFIGS.items():
-            print(f"\n=== Scraping tab: {tab_name} ===")
+            print(f"\n{'='*60}")
+            print(f"Scraping tab: {tab_name}")
+            print(f"URL: {tab_config['url']}")
+            print(f"Params: {tab_config['params']}")
+            print(f"{'='*60}")
             
             try:
                 page = 1
                 has_more_pages = True
                 
                 while has_more_pages:
-                    print(f"Fetching page {page} of {tab_name}...")
+                    print(f"\n--- Fetching page {page} of {tab_name} ---")
                     
                     # Build URL with pagination
                     params = tab_config['params'].copy()
@@ -85,11 +92,21 @@ class TaobaoScraper:
                         params['pageNum'] = str(page)
                     
                     # Fetch page
-                    response = await self.client.get(
-                        tab_config['url'],
-                        params=params,
-                        cookies=cookie_dict
-                    )
+                    try:
+                        response = await self.client.get(
+                            tab_config['url'],
+                            params=params,
+                            cookies=cookie_dict,
+                            timeout=30.0
+                        )
+                        
+                        print(f"Response status: {response.status_code}")
+                        print(f"Response URL: {response.url}")
+                        print(f"Response length: {len(response.text)} bytes")
+                        
+                    except Exception as e:
+                        print(f"Request failed: {e}")
+                        break
                     
                     if response.status_code != 200:
                         print(f"Failed to fetch {tab_name} page {page}: HTTP {response.status_code}")
@@ -98,9 +115,21 @@ class TaobaoScraper:
                     # Parse HTML
                     soup = BeautifulSoup(response.text, 'html.parser')
                     
+                    # Debug: Save first page HTML for inspection
+                    if page == 1 and tab_name == 'all':
+                        try:
+                            with open('/app/data/debug_page.html', 'w', encoding='utf-8') as f:
+                                f.write(response.text)
+                            print("DEBUG: Saved page HTML to /app/data/debug_page.html")
+                        except Exception as e:
+                            print(f"Could not save debug HTML: {e}")
+                    
                     # Check if we're still logged in
                     if self._check_login_required(soup):
-                        print("Login required - cookies may be invalid")
+                        print("❌ Login required - cookies may be invalid or expired")
+                        print("Page title:", soup.title.string if soup.title else "No title")
+                        # Print first 500 chars of page
+                        print("Page preview:", response.text[:500])
                         return all_orders
                     
                     # Extract orders from this page
@@ -108,12 +137,16 @@ class TaobaoScraper:
                     
                     if page_orders:
                         all_orders.extend(page_orders)
-                        print(f"Found {len(page_orders)} orders on page {page}")
+                        print(f"✅ Found {len(page_orders)} orders on page {page}")
+                        # Print first order as example
+                        if page_orders:
+                            print(f"Example order: {page_orders[0].get('order_id')} - {page_orders[0].get('item_title', '')[:50]}")
                     else:
-                        print(f"No orders found on page {page}")
+                        print(f"⚠️  No orders found on page {page}")
                     
                     # Check for next page
                     has_more_pages = self._has_next_page(soup)
+                    print(f"Has next page: {has_more_pages}")
                     
                     if has_more_pages:
                         page += 1
@@ -123,16 +156,18 @@ class TaobaoScraper:
                     
                     # Safety limit to prevent infinite loops
                     if page > 50:
-                        print(f"Reached page limit for {tab_name}")
+                        print(f"⚠️  Reached page limit (50) for {tab_name}")
                         break
                         
             except Exception as e:
-                print(f"Error scraping {tab_name}: {e}")
+                print(f"❌ Error scraping {tab_name}: {e}")
                 import traceback
                 traceback.print_exc()
                 continue
         
-        print(f"\n=== Total orders scraped: {len(all_orders)} ===")
+        print(f"\n{'='*80}")
+        print(f"✅ Total orders scraped: {len(all_orders)}")
+        print(f"{'='*80}\n")
         return all_orders
     
     def _check_login_required(self, soup: BeautifulSoup) -> bool:
