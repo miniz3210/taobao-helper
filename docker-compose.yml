@@ -9,9 +9,6 @@ services:
     volumes:
       - ./data:/app/data
       - ./app:/app/app
-    environment:
-      - TZ=Asia/Hong_Kong
-      - DATABASE_URL=sqlite:///./data/taobao_helper.db
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    env_file:
+      - ./netbox-helper/.env
     restart: unless-stopped
