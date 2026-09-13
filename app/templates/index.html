@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Taobao & Freight Forwarding Helper</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        .status-badge {
+            @apply px-3 py-1 rounded-full text-xs font-semibold;
+        }
+        .order-card {
+            @apply bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition-shadow;
+        }
+        .modal {
+            @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50;
+        }
+        .modal-content {
+            @apply bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div id="app" class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-blue-600 text-white shadow-lg">
+            <div class="container mx-auto px-4 py-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-2xl font-bold">📦 Taobao Helper</h1>
+                        <p class="text-blue-100 text-sm">Freight Forwarding & Purchase History Manager</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="showTab('dashboard')" class="tab-btn px-4 py-2 bg-blue-500 rounded hover:bg-blue-400">
+                            Dashboard
+                        </button>
+                        <button onclick="showTab('consolidation')" class="tab-btn px-4 py-2 bg-blue-500 rounded hover:bg-blue-400">
+                            Consolidation
+                        </button>
+                        <button onclick="showTab('ai-chat')" class="tab-btn px-4 py-2 bg-blue-500 rounded hover:bg-blue-400">
+                            AI Query
+                        </button>
+                        <button onclick="showTab('settings')" class="tab-btn px-4 py-2 bg-blue-500 rounded hover:bg-blue-400">
+                            Settings
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="container mx-auto px-4 py-6">
+            <!-- Stats Bar -->
+            <div id="stats-bar" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div class="bg-white rounded-lg shadow p-4">
+                    <div class="text-gray-500 text-sm">Total Orders</div>
+                    <div id="stat-total" class="text-2xl font-bold">0</div>
+                </div>
+                <div class="bg-yellow-50 rounded-lg shadow p-4">
+                    <div class="text-gray-500 text-sm">Pending Shipment</div>
+                    <div id="stat-pending" class="text-2xl font-bold text-yellow-600">0</div>
+                </div>
+                <div class="bg-blue-50 rounded-lg shadow p-4">
+                    <div class="text-gray-500 text-sm">In Transit</div>
+                    <div id="stat-transit" class="text-2xl font-bold text-blue-600">0</div>
+                </div>
+                <div class="bg-green-50 rounded-lg shadow p-4">
+                    <div class="text-gray-500 text-sm">Received</div>
+                    <div id="stat-received" class="text-2xl font-bold text-green-600">0</div>
+                </div>
+            </div>
+
+            <!-- Dashboard Tab -->
+            <div id="tab-dashboard" class="tab-content">
+                <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold">Order Management</h2>
+                        <div class="flex gap-2">
+                            <button onclick="showScrapeModal()" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                                🔄 Sync Taobao
+                            </button>
+                            <button onclick="showAddOrderModal()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                                ➕ Add Order
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Filter Tabs -->
+                    <div class="flex gap-2 mb-4 border-b">
+                        <button onclick="filterOrders('all')" class="filter-btn px-4 py-2 border-b-2 border-blue-600 font-semibold">
+                            All Orders
+                        </button>
+                        <button onclick="filterOrders('pending_shipment')" class="filter-btn px-4 py-2 hover:bg-gray-100">
+                            Pending Shipment
+                        </button>
+                        <button onclick="filterOrders('in_transit')" class="filter-btn px-4 py-2 hover:bg-gray-100">
+                            In Transit
+                        </button>
+                        <button onclick="filterOrders('received')" class="filter-btn px-4 py-2 hover:bg-gray-100">
+                            Received
+                        </button>
+                    </div>
+
+                    <!-- Orders Grid -->
+                    <div id="orders-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <!-- Orders will be loaded here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Consolidation Tab -->
+            <div id="tab-consolidation" class="tab-content hidden">
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h2 class="text-xl font-bold mb-4">Freight Forwarding Consolidation</h2>
+                    
+                    <div class="mb-6">
+                        <button onclick="showConsolidateModal()" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">
+                            ➕ Create Consolidation
+                        </button>
+                    </div>
+
+                    <!-- Forwarder List -->
+                    <div id="forwarders-list" class="space-y-4">
+                        <!-- Forwarders will be loaded here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Chat Tab -->
+            <div id="tab-ai-chat" class="tab-content hidden">
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h2 class="text-xl font-bold mb-4">🤖 AI Purchase History Assistant</h2>
+                    <p class="text-gray-600 mb-4">Ask me anything about your purchase history!</p>
+
+                    <!-- Chat Messages -->
+                    <div id="chat-messages" class="bg-gray-50 rounded-lg p-4 h-96 overflow-y-auto mb-4">
+                        <div class="text-gray-400 text-center py-8">
+                            Start by asking a question like:<br>
+                            "What toothbrush did I buy last year?"<br>
+                            "Show me items over 100 RMB"
+                        </div>
+                    </div>
+
+                    <!-- Chat Input -->
+                    <div class="flex gap-2">
+                        <input 
+                            type="text" 
+                            id="chat-input" 
+                            placeholder="Ask about your purchase history..."
+                            class="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onkeypress="if(event.key==='Enter') sendAIQuery()"
+                        />
+                        <button onclick="sendAIQuery()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                            Send
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div id="tab-settings" class="tab-content hidden">
+                <div class="space-y-6">
+                    <!-- Backup & Export -->
+                    <div class="bg-white rounded-lg shadow-lg p-6">
+                        <h2 class="text-xl font-bold mb-4">💾 Backup & Export</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <button onclick="downloadBackup()" class="px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+                                📥 Download System Backup (.zip)
+                            </button>
+                            <button onclick="document.getElementById('restore-file').click()" class="px-4 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700">
+                                📤 Restore from Backup
+                            </button>
+                            <button onclick="downloadExcel()" class="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                                📊 Export to Excel
+                            </button>
+                            <button onclick="downloadCSV()" class="px-4 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700">
+                                📄 Export to CSV
+                            </button>
+                        </div>
+                        <input type="file" id="restore-file" class="hidden" accept=".zip,.db" onchange="restoreBackup(this.files[0])">
+                    </div>
+
+                    <!-- Notes Preview -->
+                    <div class="bg-white rounded-lg shadow-lg p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-xl font-bold">📝 Notes Preview</h2>
+                            <button onclick="copyNotes()" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
+                                📋 Copy to Clipboard
+                            </button>
+                        </div>
+                        <pre id="notes-content" class="bg-gray-50 p-4 rounded-lg text-sm overflow-x-auto max-h-96 overflow-y-auto">
+Loading notes...
+                        </pre>
+                    </div>
+
+                    <!-- System Logs -->
+                    <div class="bg-white rounded-lg shadow-lg p-6">
+                        <h2 class="text-xl font-bold mb-4">📋 Recent System Logs</h2>
+                        <div id="system-logs" class="space-y-2 max-h-64 overflow-y-auto">
+                            <!-- Logs will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Scrape Modal -->
+        <div id="scrape-modal" class="modal hidden">
+            <div class="modal-content">
+                <h3 class="text-xl font-bold mb-4">Sync from Taobao</h3>
+                <p class="text-gray-600 mb-4">Enter your Taobao session cookies to fetch orders:</p>
+                <textarea 
+                    id="cookies-input" 
+                    class="w-full h-32 p-3 border rounded-lg mb-4"
+                    placeholder="Paste your Taobao cookies here..."
+                ></textarea>
+                <div class="flex justify-end gap-2">
+                    <button onclick="closeScrapeModal()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
+                        Cancel
+                    </button>
+                    <button onclick="syncTaobao()" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                        Sync Now
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Order Modal -->
+        <div id="add-order-modal" class="modal hidden">
+            <div class="modal-content">
+                <h3 class="text-xl font-bold mb-4">Add Order Manually</h3>
+                <form onsubmit="addOrder(event)" class="space-y-4">
+                    <input type="text" id="new-order-id" placeholder="Order ID" required class="w-full p-2 border rounded">
+                    <input type="text" id="new-item-title" placeholder="Item Title" required class="w-full p-2 border rounded">
+                    <input type="number" id="new-price" placeholder="Price (RMB)" step="0.01" required class="w-full p-2 border rounded">
+                    <input type="number" id="new-quantity" placeholder="Quantity" value="1" required class="w-full p-2 border rounded">
+                    <input type="text" id="new-seller" placeholder="Seller Name (optional)" class="w-full p-2 border rounded">
+                    <input type="text" id="new-tracking" placeholder="Tracking Number (optional)" class="w-full p-2 border rounded">
+                    <input type="url" id="new-snapshot-url" placeholder="Snapshot Image URL (optional)" class="w-full p-2 border rounded">
+                    <div class="flex justify-end gap-2">
+                        <button type="button" onclick="closeAddOrderModal()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
+                            Cancel
+                        </button>
+                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                            Add Order
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Consolidate Modal -->
+        <div id="consolidate-modal" class="modal hidden">
+            <div class="modal-content">
+                <h3 class="text-xl font-bold mb-4">Create Consolidation</h3>
+                <input type="text" id="forwarder-tracking" placeholder="Forwarder Tracking Number" class="w-full p-2 border rounded mb-4">
+                <div class="mb-4">
+                    <h4 class="font-semibold mb-2">Select Received Orders:</h4>
+                    <div id="received-orders-list" class="space-y-2 max-h-64 overflow-y-auto">
+                        <!-- Will be populated -->
+                    </div>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button onclick="closeConsolidateModal()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
+                        Cancel
+                    </button>
+                    <button onclick="createConsolidation()" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">
+                        Create
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let currentFilter = 'all';
+        let allOrders = [];
+        let selectedOrderIds = [];
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadStats();
+            await loadOrders();
+            await loadNotes();
+        });
+
+        // Tab navigation
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+
+            if (tabName === 'consolidation') loadForwarders();
+            if (tabName === 'settings') {
+                loadNotes();
+                loadLogs();
+            }
+        }
+
+        // Load statistics
+        async function loadStats() {
+            try {
+                const response = await axios.get('/api/stats');
+                const stats = response.data;
+                
+                document.getElementById('stat-total').textContent = stats.total_orders;
+                document.getElementById('stat-pending').textContent = stats.by_status.pending_shipment || 0;
+                document.getElementById('stat-transit').textContent = stats.by_status.in_transit || 0;
+                document.getElementById('stat-received').textContent = stats.by_status.received || 0;
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        // Load orders
+        async function loadOrders(status = null) {
+            try {
+                const url = status ? `/api/orders?status=${status}` : '/api/orders';
+                const response = await axios.get(url);
+                allOrders = response.data.orders;
+                renderOrders(allOrders);
+            } catch (error) {
+                console.error('Error loading orders:', error);
+            }
+        }
+
+        // Render orders
+        function renderOrders(orders) {
+            const grid = document.getElementById('orders-grid');
+            
+            if (orders.length === 0) {
+                grid.innerHTML = '<div class="col-span-full text-center text-gray-400 py-8">No orders found</div>';
+                return;
+            }
+
+            grid.innerHTML = orders.map(order => `
+                <div class="order-card">
+                    ${order.snapshot_local_path ? `
+                        <img src="/snapshots/${order.snapshot_local_path.split('/').pop()}" 
+                             class="w-full h-48 object-cover rounded mb-3" 
+                             onerror="this.src='https://via.placeholder.com/300x200?text=No+Image'">
+                    ` : ''}
+                    <h3 class="font-semibold mb-2 line-clamp-2">${order.item_title}</h3>
+                    <div class="text-sm text-gray-600 space-y-1">
+                        <div class="flex justify-between">
+                            <span>Price:</span>
+                            <span class="font-semibold text-red-600">¥${order.price} × ${order.quantity}</span>
+                        </div>
+                        ${order.order_date ? `<div>Ordered: ${new Date(order.order_date).toLocaleDateString()}</div>` : ''}
+                        ${order.seller_express_no ? `<div>Tracking: ${order.seller_express_no}</div>` : ''}
+                        <div class="mt-2">
+                            <span class="status-badge ${getStatusClass(order.current_status)}">
+                                ${formatStatus(order.current_status)}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="mt-3 flex gap-2">
+                        <button onclick="deleteOrder('${order.order_id}')" class="text-xs px-2 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200">
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Filter orders
+        function filterOrders(status) {
+            currentFilter = status;
+            
+            // Update button styles
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('border-b-2', 'border-blue-600', 'font-semibold');
+            });
+            event.target.classList.add('border-b-2', 'border-blue-600', 'font-semibold');
+            
+            if (status === 'all') {
+                renderOrders(allOrders);
+            } else {
+                const filtered = allOrders.filter(o => o.current_status === status);
+                renderOrders(filtered);
+            }
+        }
+
+        // Status helpers
+        function getStatusClass(status) {
+            const classes = {
+                'pending_shipment': 'bg-yellow-100 text-yellow-800',
+                'in_transit': 'bg-blue-100 text-blue-800',
+                'received': 'bg-green-100 text-green-800',
+                'cancelled': 'bg-gray-100 text-gray-800'
+            };
+            return classes[status] || 'bg-gray-100 text-gray-800';
+        }
+
+        function formatStatus(status) {
+            const labels = {
+                'pending_shipment': 'Pending Shipment',
+                'in_transit': 'In Transit',
+                'received': 'Received',
+                'cancelled': 'Cancelled'
+            };
+            return labels[status] || status;
+        }
+
+        // Delete order
+        async function deleteOrder(orderId) {
+            if (!confirm('Delete this order?')) return;
+            
+            try {
+                await axios.delete(`/api/orders/${orderId}`);
+                await loadOrders();
+                await loadStats();
+                alert('Order deleted successfully');
+            } catch (error) {
+                alert('Error deleting order: ' + error.message);
+            }
+        }
+
+        // Scrape modal
+        function showScrapeModal() {
+            document.getElementById('scrape-modal').classList.remove('hidden');
+        }
+
+        function closeScrapeModal() {
+            document.getElementById('scrape-modal').classList.add('hidden');
+        }
+
+        async function syncTaobao() {
+            const cookies = document.getElementById('cookies-input').value;
+            
+            if (!cookies.trim()) {
+                alert('Please enter cookies');
+                return;
+            }
+
+            try {
+                const response = await axios.post('/api/scrape', { cookies });
+                closeScrapeModal();
+                alert(`Sync complete!\nNew: ${response.data.new_orders}\nUpdated: ${response.data.updated_orders}`);
+                await loadOrders();
+                await loadStats();
+            } catch (error) {
+                alert('Error syncing: ' + error.message);
+            }
+        }
+
+        // Add order modal
+        function showAddOrderModal() {
+            document.getElementById('add-order-modal').classList.remove('hidden');
+        }
+
+        function closeAddOrderModal() {
+            document.getElementById('add-order-modal').classList.add('hidden');
+        }
+
+        async function addOrder(event) {
+            event.preventDefault();
+            
+            const orderData = {
+                order_id: document.getElementById('new-order-id').value,
+                item_title: document.getElementById('new-item-title').value,
+                price: parseFloat(document.getElementById('new-price').value),
+                quantity: parseInt(document.getElementById('new-quantity').value),
+                seller_name: document.getElementById('new-seller').value || null,
+                seller_express_no: document.getElementById('new-tracking').value || null,
+                snapshot_url: document.getElementById('new-snapshot-url').value || null
+            };
+
+            try {
+                await axios.post('/api/orders', orderData);
+                closeAddOrderModal();
+                event.target.reset();
+                await loadOrders();
+                await loadStats();
+                alert('Order added successfully');
+            } catch (error) {
+                alert('Error adding order: ' + error.message);
+            }
+        }
+
+        // AI Query
+        async function sendAIQuery() {
+            const input = document.getElementById('chat-input');
+            const query = input.value.trim();
+            
+            if (!query) return;
+
+            const messagesDiv = document.getElementById('chat-messages');
+            
+            // Add user message
+            messagesDiv.innerHTML += `
+                <div class="mb-4 text-right">
+                    <div class="inline-block bg-blue-600 text-white rounded-lg px-4 py-2 max-w-md">
+                        ${query}
+                    </div>
+                </div>
+            `;
+
+            input.value = '';
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+            try {
+                const response = await axios.post('/api/ai-query', { query });
+                
+                // Add AI response
+                let responseHtml = `
+                    <div class="mb-4">
+                        <div class="inline-block bg-gray-200 rounded-lg px-4 py-2 max-w-md">
+                            ${response.data.response}
+                        </div>
+                `;
+
+                // Add order cards
+                if (response.data.orders && response.data.orders.length > 0) {
+                    responseHtml += '<div class="mt-2 space-y-2">';
+                    response.data.orders.slice(0, 5).forEach(order => {
+                        responseHtml += `
+                            <div class="bg-white rounded p-3 shadow-sm text-sm">
+                                ${order.snapshot_local_path ? `
+                                    <img src="/snapshots/${order.snapshot_local_path.split('/').pop()}" 
+                                         class="w-full h-32 object-cover rounded mb-2" 
+                                         onerror="this.style.display='none'">
+                                ` : ''}
+                                <div class="font-semibold">${order.item_title}</div>
+                                <div class="text-gray-600">¥${order.price} × ${order.quantity}</div>
+                            </div>
+                        `;
+                    });
+                    responseHtml += '</div>';
+                }
+
+                responseHtml += '</div>';
+                messagesDiv.innerHTML += responseHtml;
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+            } catch (error) {
+                messagesDiv.innerHTML += `
+                    <div class="mb-4">
+                        <div class="inline-block bg-red-100 text-red-600 rounded-lg px-4 py-2 max-w-md">
+                            Error: ${error.message}
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // Consolidation
+        async function loadForwarders() {
+            try {
+                const response = await axios.get('/api/forwarders');
+                const forwardersDiv = document.getElementById('forwarders-list');
+                
+                if (response.data.forwarders.length === 0) {
+                    forwardersDiv.innerHTML = '<div class="text-center text-gray-400 py-8">No consolidations yet</div>';
+                    return;
+                }
+
+                forwardersDiv.innerHTML = response.data.forwarders.map(fw => `
+                    <div class="border rounded-lg p-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <h3 class="font-bold text-lg">${fw.tracking_no}</h3>
+                                <span class="status-badge ${getStatusClass(fw.status)}">${formatStatus(fw.status)}</span>
+                            </div>
+                            <button onclick="exportCustoms('${fw.tracking_no}')" class="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700">
+                                Export Customs
+                            </button>
+                        </div>
+                        <div class="text-sm text-gray-600">
+                            ${fw.consolidation_date ? `Created: ${new Date(fw.consolidation_date).toLocaleDateString()}` : ''}
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading forwarders:', error);
+            }
+        }
+
+        function showConsolidateModal() {
+            document.getElementById('consolidate-modal').classList.remove('hidden');
+            loadReceivedOrders();
+        }
+
+        function closeConsolidateModal() {
+            document.getElementById('consolidate-modal').classList.add('hidden');
+            selectedOrderIds = [];
+        }
+
+        async function loadReceivedOrders() {
+            try {
+                const response = await axios.get('/api/orders?status=received');
+                const listDiv = document.getElementById('received-orders-list');
+                
+                listDiv.innerHTML = response.data.orders.map(order => `
+                    <label class="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                        <input type="checkbox" value="${order.order_id}" onchange="toggleOrderSelection('${order.order_id}')">
+                        <span class="flex-1 text-sm">${order.item_title} (¥${order.price})</span>
+                    </label>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading received orders:', error);
+            }
+        }
+
+        function toggleOrderSelection(orderId) {
+            const index = selectedOrderIds.indexOf(orderId);
+            if (index > -1) {
+                selectedOrderIds.splice(index, 1);
+            } else {
+                selectedOrderIds.push(orderId);
+            }
+        }
+
+        async function createConsolidation() {
+            const trackingNo = document.getElementById('forwarder-tracking').value.trim();
+            
+            if (!trackingNo) {
+                alert('Please enter tracking number');
+                return;
+            }
+
+            if (selectedOrderIds.length === 0) {
+                alert('Please select at least one order');
+                return;
+            }
+
+            try {
+                await axios.post('/api/consolidation/bind', {
+                    tracking_no: trackingNo,
+                    order_ids: selectedOrderIds
+                });
+                
+                closeConsolidateModal();
+                alert('Consolidation created successfully');
+                await loadForwarders();
+            } catch (error) {
+                alert('Error creating consolidation: ' + error.message);
+            }
+        }
+
+        async function exportCustoms(trackingNo) {
+            window.location.href = `/api/consolidation/export/${trackingNo}`;
+        }
+
+        // Settings
+        async function downloadBackup() {
+            window.location.href = '/api/backup/create';
+        }
+
+        async function restoreBackup(file) {
+            if (!file) return;
+            
+            if (!confirm('This will restore the database. Continue?')) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                await axios.post('/api/backup/restore', formData);
+                alert('Backup restored successfully! Reloading...');
+                location.reload();
+            } catch (error) {
+                alert('Error restoring backup: ' + error.message);
+            }
+        }
+
+        async function downloadExcel() {
+            window.location.href = '/api/export/excel';
+        }
+
+        async function downloadCSV() {
+            window.location.href = '/api/export/csv';
+        }
+
+        async function loadNotes() {
+            try {
+                const response = await axios.get('/api/notes');
+                document.getElementById('notes-content').textContent = response.data.content;
+            } catch (error) {
+                console.error('Error loading notes:', error);
+            }
+        }
+
+        async function copyNotes() {
+            const notesText = document.getElementById('notes-content').textContent;
+            await navigator.clipboard.writeText(notesText);
+            alert('Notes copied to clipboard!');
+        }
+
+        async function loadLogs() {
+            try {
+                const response = await axios.get('/api/logs?limit=20');
+                const logsDiv = document.getElementById('system-logs');
+                
+                logsDiv.innerHTML = response.data.logs.map(log => `
+                    <div class="text-sm p-2 bg-gray-50 rounded">
+                        <span class="text-gray-500">${new Date(log.created_at).toLocaleString()}</span>
+                        <span class="ml-2 px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">${log.log_type}</span>
+                        <div class="mt-1">${log.message}</div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading logs:', error);
+            }
+        }
+    </script>
+</body>
+</html>
