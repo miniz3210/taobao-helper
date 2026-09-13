@@ -214,17 +214,25 @@ class TaobaoScraper:
     def _extract_order_id(self, container) -> Optional[str]:
         """Extract order ID"""
         # Try different selectors
-        selectors = [
-            ('span', {'class': lambda x: x and 'order-num' in str(x).lower()}),
-            ('div', {'class': lambda x: x and 'head-info-line' in str(x)}),
-            ('span', text=lambda t: t and ('訂單號' in t or '订单号' in t)),
+        # Method 1: Find by class
+        class_selectors = [
+            container.find('span', {'class': lambda x: x and 'order-num' in str(x).lower()}),
+            container.find('div', {'class': lambda x: x and 'head-info-line' in str(x)}),
         ]
         
-        for tag, attrs in selectors:
-            element = container.find(tag, attrs)
+        for element in class_selectors:
             if element:
                 text = element.get_text(strip=True)
                 # Extract number from text like "訂單號：123456789"
+                match = re.search(r'(\d{15,})', text)
+                if match:
+                    return match.group(1)
+        
+        # Method 2: Find by text content
+        text_elements = container.find_all('span')
+        for element in text_elements:
+            text = element.get_text(strip=True)
+            if '訂單號' in text or '订单号' in text:
                 match = re.search(r'(\d{15,})', text)
                 if match:
                     return match.group(1)
