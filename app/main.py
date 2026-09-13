@@ -284,22 +284,57 @@ async def scrape_taobao(
     request: ScrapeRequest,
     session: AsyncSession = Depends(get_session)
 ):
-    """Scrape orders from Taobao using cookies"""
+    """
+    Scrape orders from Taobao using cookies
+    
+    Returns HTTP 401 with specific error codes when session is invalid:
+    - SESSION_INVALID: Cookies are expired or invalid
+    - CAPTCHA_DETECTED: Anti-bot captcha detected
+    - LOGIN_REQUIRED: Redirected to login page
+    """
     # Try Playwright method first (better for maintaining session)
     try:
         print("Attempting to fetch orders using Playwright...")
-        scraped_orders = await playwright_fetcher.fetch_orders_with_cookies(request.cookies)
+        scraped_orders, error_code = await playwright_fetcher.fetch_orders_with_cookies(request.cookies)
+        
+        # Handle session validation errors - fail fast
+        if error_code in ["SESSION_INVALID", "CAPTCHA_DETECTED", "LOGIN_REQUIRED"]:
+            print(f"❌ Session validation failed: {error_code}")
+            print("🔄 Client should initiate QR code login")
+            
+            # Return 401 Unauthorized with specific error code
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "success": False,
+                    "error_code": error_code,
+                    "message": _get_error_message(error_code),
+                    "action_required": "QR_LOGIN",
+                    "new_orders": 0,
+                    "updated_orders": 0,
+                    "changes": []
+                }
+            )
         
         if scraped_orders:
             print(f"Playwright fetch successful: {len(scraped_orders)} orders")
         else:
-            print("Playwright fetch returned 0 orders, trying HTTP method...")
-            # Fallback to HTTP method
-            scraped_orders = await taobao_scraper.fetch_orders_from_taobao(request.cookies)
+            if error_code == "UNKNOWN_ERROR":
+                print("Playwright fetch encountered unknown error, trying HTTP method...")
+                # Fallback to HTTP method for unknown errors only
+                scraped_orders = await taobao_scraper.fetch_orders_from_taobao(request.cookies)
+            else:
+                print("Playwright fetch returned 0 orders (account may be empty)")
+                scraped_orders = []
+                
     except Exception as e:
-        print(f"Playwright fetch failed: {e}, falling back to HTTP method...")
+        print(f"Playwright fetch crashed: {e}, falling back to HTTP method...")
+        import traceback
+        traceback.print_exc()
+        # Only fall back on crashes, not validation failures
         scraped_orders = await taobao_scraper.fetch_orders_from_taobao(request.cookies)
     
+    # Sync orders to database
     new_count, updated_count, change_logs = await taobao_scraper.sync_orders(
         session,
         scraped_orders
@@ -311,6 +346,16 @@ async def scrape_taobao(
         "updated_orders": updated_count,
         "changes": change_logs
     }
+
+
+def _get_error_message(error_code: str) -> str:
+    """Get user-friendly error message for error codes"""
+    messages = {
+        "SESSION_INVALID": "登入會話已過期，請重新掃描 QR Code 登入",
+        "CAPTCHA_DETECTED": "檢測到安全驗證，請使用 QR Code 登入",
+        "LOGIN_REQUIRED": "需要登入，請掃描 QR Code"
+    }
+    return messages.get(error_code, "登入狀態異常，請重新登入")
 
 
 # ==================== AI QUERY ENDPOINTS ====================
