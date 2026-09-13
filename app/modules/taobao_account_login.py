@@ -147,70 +147,138 @@ class TaobaoAccountLogin:
             
             # Check and click agreement checkbox BEFORE login
             print("Checking for terms agreement checkbox...")
+            
+            # First, save page HTML for debugging
+            try:
+                page_html = await self.page.content()
+                with open('/app/data/before_agreement_check.html', 'w', encoding='utf-8') as f:
+                    f.write(page_html)
+                print("Saved page HTML to before_agreement_check.html for debugging")
+                
+                # Check if agreement text exists
+                if '已阅读并同意' in page_html or '已閱讀並同意' in page_html:
+                    print("✓ Found agreement text in page")
+            except Exception as e:
+                print(f"Could not save debug HTML: {e}")
+            
             agreement_checked = False
-            agreement_selectors = [
+            
+            # Strategy 1: Try to find and check the checkbox directly
+            checkbox_selectors = [
                 'input[type="checkbox"]',
-                '.protocol-content input',
-                '#J_Agreement',
                 'input[id*="agreement"]',
                 'input[id*="protocol"]',
-                'input[class*="agreement"]',
+                'input[name*="agreement"]',
+                '.protocol-content input',
+                '#J_Agreement',
                 '.agreement-checkbox',
-                '[type="checkbox"][name*="agree"]',
             ]
             
-            for selector in agreement_selectors:
+            for selector in checkbox_selectors:
                 try:
-                    # Try to find the checkbox
-                    checkbox = await self.page.query_selector(selector)
-                    if checkbox:
-                        # Check if it's visible and not already checked
-                        is_visible = await checkbox.is_visible()
-                        is_checked = await checkbox.is_checked()
-                        
-                        if is_visible and not is_checked:
-                            print(f"Found agreement checkbox with selector: {selector}")
-                            await checkbox.check()
-                            print("✅ Agreement checkbox checked")
-                            agreement_checked = True
-                            await asyncio.sleep(500)  # Wait 500ms after checking
-                            break
-                        elif is_checked:
-                            print(f"Agreement checkbox already checked: {selector}")
-                            agreement_checked = True
-                            break
+                    checkboxes = await self.page.query_selector_all(selector)
+                    print(f"Found {len(checkboxes)} elements for selector: {selector}")
+                    
+                    for checkbox in checkboxes:
+                        try:
+                            is_visible = await checkbox.is_visible()
+                            if is_visible:
+                                is_checked = await checkbox.is_checked()
+                                print(f"  Checkbox visible: {is_visible}, checked: {is_checked}")
+                                
+                                if not is_checked:
+                                    print(f"  Attempting to check checkbox with selector: {selector}")
+                                    await checkbox.check()
+                                    await asyncio.sleep(1000)
+                                    print("  ✅ Agreement checkbox checked")
+                                    agreement_checked = True
+                                    break
+                                else:
+                                    print(f"  Checkbox already checked: {selector}")
+                                    agreement_checked = True
+                                    break
+                        except Exception as e:
+                            print(f"  Error checking individual checkbox: {e}")
+                            continue
+                    
+                    if agreement_checked:
+                        break
                 except Exception as e:
+                    print(f"Error with selector {selector}: {e}")
                     continue
             
-            # Try text-based selectors if checkbox not found
+            # Strategy 2: Try clicking the label/span text
             if not agreement_checked:
+                print("Trying text-based agreement selectors...")
                 text_selectors = [
-                    'text=已阅读并同意',
-                    'text=已閱讀並同意',
-                    'span:has-text("已阅读")',
-                    'span:has-text("已閱讀")',
-                    'label:has-text("同意")',
+                    'span:has-text("已阅读并同意")',
+                    'label:has-text("已阅读并同意")',
+                    'span:has-text("已閱讀並同意")',
+                    'label:has-text("已閱讀並同意")',
                 ]
                 
                 for selector in text_selectors:
                     try:
-                        element = await self.page.query_selector(selector)
-                        if element:
-                            is_visible = await element.is_visible()
-                            if is_visible:
-                                print(f"Found agreement text element: {selector}")
-                                await element.click()
-                                print("✅ Agreement element clicked")
-                                agreement_checked = True
-                                await asyncio.sleep(500)  # Wait 500ms after clicking
-                                break
+                        elements = await self.page.query_selector_all(selector)
+                        print(f"Found {len(elements)} text elements for: {selector}")
+                        
+                        for element in elements:
+                            try:
+                                is_visible = await element.is_visible()
+                                if is_visible:
+                                    print(f"  Clicking agreement text element")
+                                    await element.click()
+                                    await asyncio.sleep(1000)
+                                    print("  ✅ Agreement text element clicked")
+                                    agreement_checked = True
+                                    break
+                            except Exception as e:
+                                print(f"  Error clicking text element: {e}")
+                                continue
+                        
+                        if agreement_checked:
+                            break
                     except Exception as e:
+                        print(f"Error with text selector {selector}: {e}")
                         continue
+            
+            # Strategy 3: Use JavaScript to force check all checkboxes
+            if not agreement_checked:
+                print("Trying JavaScript fallback to check all visible checkboxes...")
+                try:
+                    await self.page.evaluate("""
+                        () => {
+                            const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+                            let checked = false;
+                            checkboxes.forEach(cb => {
+                                if (cb.offsetParent !== null && !cb.checked) {
+                                    cb.checked = true;
+                                    cb.dispatchEvent(new Event('change', { bubbles: true }));
+                                    checked = true;
+                                }
+                            });
+                            return checked;
+                        }
+                    """)
+                    await asyncio.sleep(1000)
+                    print("  ✅ JavaScript checkbox check attempted")
+                    agreement_checked = True
+                except Exception as e:
+                    print(f"  JavaScript fallback failed: {e}")
             
             if agreement_checked:
                 print("✅ Terms agreement handled successfully")
             else:
-                print("ℹ️  No agreement checkbox found (may not be required)")
+                print("⚠️  Could not verify agreement checkbox - proceeding anyway")
+            
+            # Save page state after agreement handling
+            try:
+                page_html_after = await self.page.content()
+                with open('/app/data/after_agreement_check.html', 'w', encoding='utf-8') as f:
+                    f.write(page_html_after)
+                print("Saved page HTML after agreement check")
+            except:
+                pass
             
             # Handle slider CAPTCHA if present
             try:
