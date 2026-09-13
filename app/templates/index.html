@@ -94,18 +94,21 @@
                     </div>
 
                     <!-- Filter Tabs -->
-                    <div class="flex gap-2 mb-4 border-b">
-                        <button onclick="filterOrders('all')" class="filter-btn px-4 py-2 border-b-2 border-orange-600 font-semibold">
-                            全部訂單
+                    <div class="flex gap-2 mb-4 border-b overflow-x-auto">
+                        <button onclick="filterOrders('all')" class="filter-btn px-4 py-2 border-b-2 border-orange-600 font-semibold whitespace-nowrap">
+                            所有訂單
                         </button>
-                        <button onclick="filterOrders('pending_shipment')" class="filter-btn px-4 py-2 hover:bg-gray-100">
+                        <button onclick="filterOrders('pending_payment')" class="filter-btn px-4 py-2 hover:bg-gray-100 whitespace-nowrap">
+                            待付款
+                        </button>
+                        <button onclick="filterOrders('pending_shipment')" class="filter-btn px-4 py-2 hover:bg-gray-100 whitespace-nowrap">
                             待發貨
                         </button>
-                        <button onclick="filterOrders('in_transit')" class="filter-btn px-4 py-2 hover:bg-gray-100">
-                            運送中
+                        <button onclick="filterOrders('in_transit')" class="filter-btn px-4 py-2 hover:bg-gray-100 whitespace-nowrap">
+                            待收貨 <span id="tab-count-transit" class="text-orange-600 font-bold"></span>
                         </button>
-                        <button onclick="filterOrders('received')" class="filter-btn px-4 py-2 hover:bg-gray-100">
-                            已到貨
+                        <button onclick="filterOrders('received')" class="filter-btn px-4 py-2 hover:bg-gray-100 whitespace-nowrap">
+                            待評價 <span id="tab-count-received" class="text-orange-600 font-bold"></span>
                         </button>
                     </div>
 
