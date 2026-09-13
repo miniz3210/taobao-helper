@@ -5,6 +5,7 @@ Handles QR code login using Playwright
 import asyncio
 import json
 import base64
+import re
 from pathlib import Path
 from typing import Dict, Optional, List
 from playwright.async_api import async_playwright, Browser, Page, TimeoutError as PlaywrightTimeout
@@ -167,30 +168,86 @@ class TaobaoQRLogin:
             print(f"Session indicators found: {found_indicators}")
             
             if has_session:
-                # Successful login detected!
+                # QR scan detected! Now handle post-login flow
                 print(f"Session cookies detected: {list(cookie_dict.keys())}")
                 
-                self.login_status = "success"
-                self.cookies_dict = cookie_dict
+                # Handle "Keep Signed In" modal if it appears
+                print("Checking for post-login modal...")
+                try:
+                    confirm_btn = self.page.locator('text="知道了"')
+                    if await confirm_btn.is_visible(timeout=5000):
+                        print("Found '知道了' button, clicking...")
+                        await confirm_btn.click()
+                        await asyncio.sleep(1)
+                        print("✅ Modal dismissed")
+                except Exception as e:
+                    print(f"No modal found or already dismissed: {e}")
                 
-                # Save cookies to file
-                self._save_cookies(cookies)
+                # Wait for navigation to complete - expect redirect to orders page
+                print("Waiting for navigation to buyertrade.taobao.com...")
+                try:
+                    await self.page.wait_for_url(
+                        lambda url: 'buyertrade.taobao.com' in url,
+                        timeout=60000,
+                        wait_until="domcontentloaded"
+                    )
+                    print(f"✅ Navigation complete: {self.page.url}")
+                except Exception as e:
+                    print(f"Navigation timeout or failed: {e}")
+                    # Try manual navigation
+                    print("Attempting manual navigation to orders page...")
+                    try:
+                        await self.page.goto(
+                            'https://buyertrade.taobao.com/trade/itemlist/list_bought_items.htm',
+                            wait_until='domcontentloaded',
+                            timeout=30000
+                        )
+                        await asyncio.sleep(2)
+                        print(f"Manual navigation complete: {self.page.url}")
+                    except Exception as nav_error:
+                        print(f"❌ Manual navigation failed: {nav_error}")
+                        return {
+                            "status": "pending",
+                            "logged_in": False,
+                            "message": "等待導航完成..."
+                        }
                 
-                # Format cookies as string
-                cookies_str = "; ".join([f"{k}={v}" for k, v in cookie_dict.items()])
+                # Extract cookies from the entire context after navigation
+                cookies = await self.page.context.cookies()
+                cookie_dict = {cookie['name']: cookie['value'] for cookie in cookies}
+                cookie_names = list(cookie_dict.keys())
                 
-                print(f"Login successful, returning cookies (length: {len(cookies_str)})")
+                print(f"Final cookies after navigation: {len(cookies)} total")
+                print(f"Cookie names: {cookie_names}")
                 
-                # DON'T cleanup yet - keep browser open for order fetching
-                # The /api/scrape endpoint will use this browser session
-                
-                return {
-                    "status": "success",
-                    "logged_in": True,
-                    "cookies": cookies_str,
-                    "message": "登入成功！",
-                    "keep_browser": True  # Signal to keep browser open
-                }
+                # Verify critical session cookies exist
+                if 'unb' in cookie_names and 'cookie2' in cookie_names:
+                    print("✅ Critical session cookies verified: unb, cookie2")
+                    
+                    self.login_status = "success"
+                    self.cookies_dict = cookie_dict
+                    
+                    # Save cookies to file
+                    self._save_cookies(cookies)
+                    
+                    # Format cookies as string
+                    cookies_str = "; ".join([f"{k}={v}" for k, v in cookie_dict.items()])
+                    
+                    print(f"Login successful, returning cookies (length: {len(cookies_str)})")
+                    
+                    # DON'T cleanup yet - keep browser open for order fetching
+                    # The /api/scrape endpoint will use this browser session
+                    
+                    return {
+                        "status": "success",
+                        "logged_in": True,
+                        "cookies": cookies_str,
+                        "message": "登入成功！",
+                        "keep_browser": True  # Signal to keep browser open
+                    }
+                else:
+                    print(f"❌ Missing critical cookies. Found: {cookie_names}")
+                    raise Exception("Login failed: missing critical 'unb' or 'cookie2' tokens.")
             
             # Still waiting for scan
             return {

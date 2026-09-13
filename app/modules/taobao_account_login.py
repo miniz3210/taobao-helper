@@ -360,6 +360,18 @@ class TaobaoAccountLogin:
                 # Login successful!
                 print("✅ Login appears successful - no longer on login page")
                 
+                # Handle "Keep Signed In" modal if it appears
+                print("Checking for post-login modal...")
+                try:
+                    confirm_btn = self.page.locator('text="知道了"')
+                    if await confirm_btn.is_visible(timeout=5000):
+                        print("Found '知道了' button, clicking...")
+                        await confirm_btn.click()
+                        await asyncio.sleep(1)
+                        print("✅ Modal dismissed")
+                except Exception as e:
+                    print(f"No modal found or already dismissed: {e}")
+                
                 # CRITICAL: Navigate to orders page to activate the session
                 print("🔑 Navigating to orders page to activate session...")
                 try:
@@ -387,20 +399,27 @@ class TaobaoAccountLogin:
                     
                 except Exception as e:
                     print(f"⚠️  Failed to access orders page: {e}")
-                    # Continue anyway, cookies might still work
+                    await self._save_debug_page('navigation_failed')
+                    return {
+                        "success": False,
+                        "cookies": None,
+                        "message": f"訪問訂單頁面失敗：{str(e)}"
+                    }
                 
-                # Get cookies AFTER accessing orders page
+                # Extract cookies from entire context AFTER navigation completion
                 cookies = await self.page.context.cookies()
                 print(f"Collected {len(cookies)} cookies after orders page access")
                 
-                # Check for session cookies
+                # Verify critical session cookies
                 cookie_dict = {cookie['name']: cookie['value'] for cookie in cookies}
-                session_indicators = ['cookie2', 'unb', 't', '_tb_token_']
-                found_indicators = [key for key in session_indicators if key in cookie_dict]
+                cookie_names = list(cookie_dict.keys())
                 
-                print(f"Session indicators found: {found_indicators}")
+                print(f"Cookie names: {cookie_names}")
                 
-                if len(found_indicators) >= 2:
+                # Must contain 'unb' (user ID) and 'cookie2'
+                if 'unb' in cookie_names and 'cookie2' in cookie_names:
+                    print("✅ Critical session cookies verified: unb, cookie2")
+                    
                     self.login_status = "success"
                     self.cookies_dict = cookie_dict
                     
@@ -421,13 +440,9 @@ class TaobaoAccountLogin:
                         "session_activated": True
                     }
                 else:
-                    print("⚠️  Session cookies not found, login may have failed")
+                    print(f"❌ Missing critical cookies. Found: {cookie_names}")
                     await self._save_debug_page('no_session_cookies')
-                    return {
-                        "success": False,
-                        "cookies": None,
-                        "message": "登入可能失敗：未找到會話 Cookie"
-                    }
+                    raise Exception("Login failed: missing critical 'unb' or 'cookie2' tokens.")
             else:
                 # Still on login page
                 print("❌ Still on login page - login failed")
