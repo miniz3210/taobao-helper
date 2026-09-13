@@ -24,6 +24,7 @@ from app.modules.taobao_scraper import TaobaoScraper
 from app.modules.notes_generator import NotesGenerator
 from app.modules.consolidation_manager import ConsolidationManager
 from app.modules.ai_assistant import AIQueryAssistant
+from app.modules.taobao_login import TaobaoLogin
 
 
 # Initialize FastAPI app
@@ -53,6 +54,7 @@ taobao_scraper = TaobaoScraper(image_archiver)
 notes_generator = NotesGenerator()
 consolidation_manager = ConsolidationManager()
 ai_assistant = AIQueryAssistant()
+taobao_login = TaobaoLogin()
 
 
 # Pydantic models for request/response
@@ -69,6 +71,11 @@ class OrderCreate(BaseModel):
 
 class ScrapeRequest(BaseModel):
     cookies: str
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
 
 
 class AIQueryRequest(BaseModel):
@@ -181,6 +188,16 @@ async def delete_order(order_id: str, session: AsyncSession = Depends(get_sessio
 
 
 # ==================== SCRAPING ENDPOINTS ====================
+
+@app.post("/api/login")
+async def login_taobao(request: LoginRequest):
+    """Login to Taobao with username and password"""
+    result = await taobao_login.login_with_account(
+        request.username,
+        request.password
+    )
+    return result
+
 
 @app.post("/api/scrape")
 async def scrape_taobao(

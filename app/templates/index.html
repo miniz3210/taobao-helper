@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Taobao & Freight Forwarding Helper</title>
+    <title>淘寶 & 集運助手</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <style>
@@ -25,25 +25,25 @@
 <body class="bg-gray-100">
     <div id="app" class="min-h-screen">
         <!-- Header -->
-        <header class="bg-blue-600 text-white shadow-lg">
+        <header class="bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg">
             <div class="container mx-auto px-4 py-4">
                 <div class="flex items-center justify-between">
                     <div>
-                        <h1 class="text-2xl font-bold">📦 Taobao Helper</h1>
-                        <p class="text-blue-100 text-sm">Freight Forwarding & Purchase History Manager</p>
+                        <h1 class="text-2xl font-bold">📦 淘寶集運助手</h1>
+                        <p class="text-orange-100 text-sm">購物歷史追蹤 & 集運管理系統</p>
                     </div>
                     <div class="flex gap-2">
-                        <button onclick="showTab('dashboard')" class="tab-btn px-4 py-2 bg-blue-500 rounded hover:bg-blue-400">
-                            Dashboard
+                        <button onclick="showTab('dashboard')" class="tab-btn px-4 py-2 bg-orange-600 rounded hover:bg-orange-500">
+                            控制台
                         </button>
-                        <button onclick="showTab('consolidation')" class="tab-btn px-4 py-2 bg-blue-500 rounded hover:bg-blue-400">
-                            Consolidation
+                        <button onclick="showTab('consolidation')" class="tab-btn px-4 py-2 bg-orange-600 rounded hover:bg-orange-500">
+                            集運管理
                         </button>
-                        <button onclick="showTab('ai-chat')" class="tab-btn px-4 py-2 bg-blue-500 rounded hover:bg-blue-400">
-                            AI Query
+                        <button onclick="showTab('ai-chat')" class="tab-btn px-4 py-2 bg-orange-600 rounded hover:bg-orange-500">
+                            AI 查詢
                         </button>
-                        <button onclick="showTab('settings')" class="tab-btn px-4 py-2 bg-blue-500 rounded hover:bg-blue-400">
-                            Settings
+                        <button onclick="showTab('settings')" class="tab-btn px-4 py-2 bg-orange-600 rounded hover:bg-orange-500">
+                            設定
                         </button>
                     </div>
                 </div>
@@ -55,19 +55,19 @@
             <!-- Stats Bar -->
             <div id="stats-bar" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div class="bg-white rounded-lg shadow p-4">
-                    <div class="text-gray-500 text-sm">Total Orders</div>
+                    <div class="text-gray-500 text-sm">總訂單數</div>
                     <div id="stat-total" class="text-2xl font-bold">0</div>
                 </div>
                 <div class="bg-yellow-50 rounded-lg shadow p-4">
-                    <div class="text-gray-500 text-sm">Pending Shipment</div>
+                    <div class="text-gray-500 text-sm">待發貨</div>
                     <div id="stat-pending" class="text-2xl font-bold text-yellow-600">0</div>
                 </div>
                 <div class="bg-blue-50 rounded-lg shadow p-4">
-                    <div class="text-gray-500 text-sm">In Transit</div>
+                    <div class="text-gray-500 text-sm">運送中</div>
                     <div id="stat-transit" class="text-2xl font-bold text-blue-600">0</div>
                 </div>
                 <div class="bg-green-50 rounded-lg shadow p-4">
-                    <div class="text-gray-500 text-sm">Received</div>
+                    <div class="text-gray-500 text-sm">已到貨</div>
                     <div id="stat-received" class="text-2xl font-bold text-green-600">0</div>
                 </div>
             </div>
@@ -76,30 +76,33 @@
             <div id="tab-dashboard" class="tab-content">
                 <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
                     <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-xl font-bold">Order Management</h2>
+                        <h2 class="text-xl font-bold">訂單管理</h2>
                         <div class="flex gap-2">
+                            <button onclick="showLoginModal()" class="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700">
+                                🔐 淘寶登入
+                            </button>
                             <button onclick="showScrapeModal()" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
-                                🔄 Sync Taobao
+                                🔄 同步訂單
                             </button>
                             <button onclick="showAddOrderModal()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-                                ➕ Add Order
+                                ➕ 新增訂單
                             </button>
                         </div>
                     </div>
 
                     <!-- Filter Tabs -->
                     <div class="flex gap-2 mb-4 border-b">
-                        <button onclick="filterOrders('all')" class="filter-btn px-4 py-2 border-b-2 border-blue-600 font-semibold">
-                            All Orders
+                        <button onclick="filterOrders('all')" class="filter-btn px-4 py-2 border-b-2 border-orange-600 font-semibold">
+                            全部訂單
                         </button>
                         <button onclick="filterOrders('pending_shipment')" class="filter-btn px-4 py-2 hover:bg-gray-100">
-                            Pending Shipment
+                            待發貨
                         </button>
                         <button onclick="filterOrders('in_transit')" class="filter-btn px-4 py-2 hover:bg-gray-100">
-                            In Transit
+                            運送中
                         </button>
                         <button onclick="filterOrders('received')" class="filter-btn px-4 py-2 hover:bg-gray-100">
-                            Received
+                            已到貨
                         </button>
                     </div>
 
@@ -113,11 +116,11 @@
             <!-- Consolidation Tab -->
             <div id="tab-consolidation" class="tab-content hidden">
                 <div class="bg-white rounded-lg shadow-lg p-6">
-                    <h2 class="text-xl font-bold mb-4">Freight Forwarding Consolidation</h2>
+                    <h2 class="text-xl font-bold mb-4">集運管理</h2>
                     
                     <div class="mb-6">
                         <button onclick="showConsolidateModal()" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">
-                            ➕ Create Consolidation
+                            ➕ 建立集運單
                         </button>
                     </div>
 
@@ -131,15 +134,15 @@
             <!-- AI Chat Tab -->
             <div id="tab-ai-chat" class="tab-content hidden">
                 <div class="bg-white rounded-lg shadow-lg p-6">
-                    <h2 class="text-xl font-bold mb-4">🤖 AI Purchase History Assistant</h2>
-                    <p class="text-gray-600 mb-4">Ask me anything about your purchase history!</p>
+                    <h2 class="text-xl font-bold mb-4">🤖 AI 購物歷史助手</h2>
+                    <p class="text-gray-600 mb-4">用自然語言查詢您的購物記錄！</p>
 
                     <!-- Chat Messages -->
                     <div id="chat-messages" class="bg-gray-50 rounded-lg p-4 h-96 overflow-y-auto mb-4">
                         <div class="text-gray-400 text-center py-8">
-                            Start by asking a question like:<br>
-                            "What toothbrush did I buy last year?"<br>
-                            "Show me items over 100 RMB"
+                            試試問我：<br>
+                            「去年買過什麼牙刷？」<br>
+                            「顯示超過 100 元的商品」
                         </div>
                     </div>
 
@@ -148,12 +151,12 @@
                         <input 
                             type="text" 
                             id="chat-input" 
-                            placeholder="Ask about your purchase history..."
-                            class="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="詢問您的購物歷史..."
+                            class="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                             onkeypress="if(event.key==='Enter') sendAIQuery()"
                         />
-                        <button onclick="sendAIQuery()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                            Send
+                        <button onclick="sendAIQuery()" class="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700">
+                            發送
                         </button>
                     </div>
                 </div>
@@ -164,19 +167,19 @@
                 <div class="space-y-6">
                     <!-- Backup & Export -->
                     <div class="bg-white rounded-lg shadow-lg p-6">
-                        <h2 class="text-xl font-bold mb-4">💾 Backup & Export</h2>
+                        <h2 class="text-xl font-bold mb-4">💾 備份與匯出</h2>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <button onclick="downloadBackup()" class="px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
-                                📥 Download System Backup (.zip)
+                                📥 下載系統備份 (.zip)
                             </button>
                             <button onclick="document.getElementById('restore-file').click()" class="px-4 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700">
-                                📤 Restore from Backup
+                                📤 還原備份
                             </button>
                             <button onclick="downloadExcel()" class="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700">
-                                📊 Export to Excel
+                                📊 匯出 Excel
                             </button>
                             <button onclick="downloadCSV()" class="px-4 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700">
-                                📄 Export to CSV
+                                📄 匯出 CSV
                             </button>
                         </div>
                         <input type="file" id="restore-file" class="hidden" accept=".zip,.db" onchange="restoreBackup(this.files[0])">
@@ -185,19 +188,19 @@
                     <!-- Notes Preview -->
                     <div class="bg-white rounded-lg shadow-lg p-6">
                         <div class="flex justify-between items-center mb-4">
-                            <h2 class="text-xl font-bold">📝 Notes Preview</h2>
+                            <h2 class="text-xl font-bold">📝 備忘錄預覽</h2>
                             <button onclick="copyNotes()" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
-                                📋 Copy to Clipboard
+                                📋 複製到剪貼簿
                             </button>
                         </div>
                         <pre id="notes-content" class="bg-gray-50 p-4 rounded-lg text-sm overflow-x-auto max-h-96 overflow-y-auto">
-Loading notes...
+載入備忘錄中...
                         </pre>
                     </div>
 
                     <!-- System Logs -->
                     <div class="bg-white rounded-lg shadow-lg p-6">
-                        <h2 class="text-xl font-bold mb-4">📋 Recent System Logs</h2>
+                        <h2 class="text-xl font-bold mb-4">📋 系統日誌</h2>
                         <div id="system-logs" class="space-y-2 max-h-64 overflow-y-auto">
                             <!-- Logs will be loaded here -->
                         </div>
@@ -206,22 +209,66 @@ Loading notes...
             </div>
         </main>
 
+        <!-- Login Modal -->
+        <div id="login-modal" class="modal hidden">
+            <div class="modal-content max-w-md">
+                <h3 class="text-xl font-bold mb-4">🔐 淘寶帳號登入</h3>
+                <p class="text-gray-600 mb-4">使用您的淘寶帳號密碼登入：</p>
+                <form onsubmit="loginTaobao(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">帳號（手機號碼/會員名）</label>
+                        <input 
+                            type="text" 
+                            id="login-username" 
+                            required
+                            placeholder="輸入淘寶帳號"
+                            class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">密碼</label>
+                        <input 
+                            type="password" 
+                            id="login-password" 
+                            required
+                            placeholder="輸入密碼"
+                            class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        />
+                    </div>
+                    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-3 text-sm">
+                        <p class="text-yellow-700">⚠️ 提醒：如果帳號開啟了驗證碼或二步驗證，可能需要手動輸入 Cookies。</p>
+                    </div>
+                    <div class="flex justify-end gap-2">
+                        <button type="button" onclick="closeLoginModal()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
+                            取消
+                        </button>
+                        <button type="submit" class="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700">
+                            登入
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         <!-- Scrape Modal -->
         <div id="scrape-modal" class="modal hidden">
             <div class="modal-content">
-                <h3 class="text-xl font-bold mb-4">Sync from Taobao</h3>
-                <p class="text-gray-600 mb-4">Enter your Taobao session cookies to fetch orders:</p>
+                <h3 class="text-xl font-bold mb-4">同步淘寶訂單</h3>
+                <p class="text-gray-600 mb-4">輸入您的淘寶 Session Cookies 來抓取訂單：</p>
                 <textarea 
                     id="cookies-input" 
                     class="w-full h-32 p-3 border rounded-lg mb-4"
-                    placeholder="Paste your Taobao cookies here..."
+                    placeholder="貼上您的淘寶 Cookies..."
                 ></textarea>
+                <div class="bg-blue-50 border-l-4 border-blue-400 p-3 mb-4 text-sm">
+                    <p class="text-blue-700">💡 提示：開啟瀏覽器開發者工具 (F12) → Application → Cookies → taobao.com，複製所有 cookies。</p>
+                </div>
                 <div class="flex justify-end gap-2">
                     <button onclick="closeScrapeModal()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
-                        Cancel
+                        取消
                     </button>
                     <button onclick="syncTaobao()" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
-                        Sync Now
+                        開始同步
                     </button>
                 </div>
             </div>
@@ -230,21 +277,21 @@ Loading notes...
         <!-- Add Order Modal -->
         <div id="add-order-modal" class="modal hidden">
             <div class="modal-content">
-                <h3 class="text-xl font-bold mb-4">Add Order Manually</h3>
+                <h3 class="text-xl font-bold mb-4">手動新增訂單</h3>
                 <form onsubmit="addOrder(event)" class="space-y-4">
-                    <input type="text" id="new-order-id" placeholder="Order ID" required class="w-full p-2 border rounded">
-                    <input type="text" id="new-item-title" placeholder="Item Title" required class="w-full p-2 border rounded">
-                    <input type="number" id="new-price" placeholder="Price (RMB)" step="0.01" required class="w-full p-2 border rounded">
-                    <input type="number" id="new-quantity" placeholder="Quantity" value="1" required class="w-full p-2 border rounded">
-                    <input type="text" id="new-seller" placeholder="Seller Name (optional)" class="w-full p-2 border rounded">
-                    <input type="text" id="new-tracking" placeholder="Tracking Number (optional)" class="w-full p-2 border rounded">
-                    <input type="url" id="new-snapshot-url" placeholder="Snapshot Image URL (optional)" class="w-full p-2 border rounded">
+                    <input type="text" id="new-order-id" placeholder="訂單編號" required class="w-full p-2 border rounded">
+                    <input type="text" id="new-item-title" placeholder="商品名稱" required class="w-full p-2 border rounded">
+                    <input type="number" id="new-price" placeholder="價格（人民幣）" step="0.01" required class="w-full p-2 border rounded">
+                    <input type="number" id="new-quantity" placeholder="數量" value="1" required class="w-full p-2 border rounded">
+                    <input type="text" id="new-seller" placeholder="賣家名稱（選填）" class="w-full p-2 border rounded">
+                    <input type="text" id="new-tracking" placeholder="物流單號（選填）" class="w-full p-2 border rounded">
+                    <input type="url" id="new-snapshot-url" placeholder="商品圖片網址（選填）" class="w-full p-2 border rounded">
                     <div class="flex justify-end gap-2">
                         <button type="button" onclick="closeAddOrderModal()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
-                            Cancel
+                            取消
                         </button>
                         <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-                            Add Order
+                            新增
                         </button>
                     </div>
                 </form>
@@ -254,20 +301,20 @@ Loading notes...
         <!-- Consolidate Modal -->
         <div id="consolidate-modal" class="modal hidden">
             <div class="modal-content">
-                <h3 class="text-xl font-bold mb-4">Create Consolidation</h3>
-                <input type="text" id="forwarder-tracking" placeholder="Forwarder Tracking Number" class="w-full p-2 border rounded mb-4">
+                <h3 class="text-xl font-bold mb-4">建立集運單</h3>
+                <input type="text" id="forwarder-tracking" placeholder="集運單號" class="w-full p-2 border rounded mb-4">
                 <div class="mb-4">
-                    <h4 class="font-semibold mb-2">Select Received Orders:</h4>
+                    <h4 class="font-semibold mb-2">選擇已到貨的訂單：</h4>
                     <div id="received-orders-list" class="space-y-2 max-h-64 overflow-y-auto">
                         <!-- Will be populated -->
                     </div>
                 </div>
                 <div class="flex justify-end gap-2">
                     <button onclick="closeConsolidateModal()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
-                        Cancel
+                        取消
                     </button>
                     <button onclick="createConsolidation()" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">
-                        Create
+                        建立
                     </button>
                 </div>
             </div>
@@ -310,7 +357,7 @@ Loading notes...
                 document.getElementById('stat-transit').textContent = stats.by_status.in_transit || 0;
                 document.getElementById('stat-received').textContent = stats.by_status.received || 0;
             } catch (error) {
-                console.error('Error loading stats:', error);
+                console.error('載入統計資料錯誤:', error);
             }
         }
 
@@ -322,7 +369,7 @@ Loading notes...
                 allOrders = response.data.orders;
                 renderOrders(allOrders);
             } catch (error) {
-                console.error('Error loading orders:', error);
+                console.error('載入訂單錯誤:', error);
             }
         }
 
@@ -331,7 +378,7 @@ Loading notes...
             const grid = document.getElementById('orders-grid');
             
             if (orders.length === 0) {
-                grid.innerHTML = '<div class="col-span-full text-center text-gray-400 py-8">No orders found</div>';
+                grid.innerHTML = '<div class="col-span-full text-center text-gray-400 py-8">目前沒有訂單</div>';
                 return;
             }
 
@@ -340,16 +387,16 @@ Loading notes...
                     ${order.snapshot_local_path ? `
                         <img src="/snapshots/${order.snapshot_local_path.split('/').pop()}" 
                              class="w-full h-48 object-cover rounded mb-3" 
-                             onerror="this.src='https://via.placeholder.com/300x200?text=No+Image'">
+                             onerror="this.src='https://via.placeholder.com/300x200?text=無圖片'">
                     ` : ''}
                     <h3 class="font-semibold mb-2 line-clamp-2">${order.item_title}</h3>
                     <div class="text-sm text-gray-600 space-y-1">
                         <div class="flex justify-between">
-                            <span>Price:</span>
+                            <span>價格：</span>
                             <span class="font-semibold text-red-600">¥${order.price} × ${order.quantity}</span>
                         </div>
-                        ${order.order_date ? `<div>Ordered: ${new Date(order.order_date).toLocaleDateString()}</div>` : ''}
-                        ${order.seller_express_no ? `<div>Tracking: ${order.seller_express_no}</div>` : ''}
+                        ${order.order_date ? `<div>下單日期：${new Date(order.order_date).toLocaleDateString('zh-TW')}</div>` : ''}
+                        ${order.seller_express_no ? `<div>物流單號：${order.seller_express_no}</div>` : ''}
                         <div class="mt-2">
                             <span class="status-badge ${getStatusClass(order.current_status)}">
                                 ${formatStatus(order.current_status)}
@@ -358,7 +405,7 @@ Loading notes...
                     </div>
                     <div class="mt-3 flex gap-2">
                         <button onclick="deleteOrder('${order.order_id}')" class="text-xs px-2 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200">
-                            Delete
+                            刪除
                         </button>
                     </div>
                 </div>
@@ -371,9 +418,9 @@ Loading notes...
             
             // Update button styles
             document.querySelectorAll('.filter-btn').forEach(btn => {
-                btn.classList.remove('border-b-2', 'border-blue-600', 'font-semibold');
+                btn.classList.remove('border-b-2', 'border-orange-600', 'font-semibold');
             });
-            event.target.classList.add('border-b-2', 'border-blue-600', 'font-semibold');
+            event.target.classList.add('border-b-2', 'border-orange-600', 'font-semibold');
             
             if (status === 'all') {
                 renderOrders(allOrders);
@@ -396,25 +443,75 @@ Loading notes...
 
         function formatStatus(status) {
             const labels = {
-                'pending_shipment': 'Pending Shipment',
-                'in_transit': 'In Transit',
-                'received': 'Received',
-                'cancelled': 'Cancelled'
+                'pending_shipment': '待發貨',
+                'in_transit': '運送中',
+                'received': '已到貨',
+                'cancelled': '已取消'
             };
             return labels[status] || status;
         }
 
         // Delete order
         async function deleteOrder(orderId) {
-            if (!confirm('Delete this order?')) return;
+            if (!confirm('確定要刪除此訂單嗎？')) return;
             
             try {
                 await axios.delete(`/api/orders/${orderId}`);
                 await loadOrders();
                 await loadStats();
-                alert('Order deleted successfully');
+                alert('訂單已刪除');
             } catch (error) {
-                alert('Error deleting order: ' + error.message);
+                alert('刪除訂單錯誤：' + error.message);
+            }
+        }
+
+        // Login modal
+        function showLoginModal() {
+            document.getElementById('login-modal').classList.remove('hidden');
+        }
+
+        function closeLoginModal() {
+            document.getElementById('login-modal').classList.add('hidden');
+        }
+
+        async function loginTaobao(event) {
+            event.preventDefault();
+            
+            const username = document.getElementById('login-username').value;
+            const password = document.getElementById('login-password').value;
+
+            // Show loading
+            const submitBtn = event.target.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            submitBtn.textContent = '登入中...';
+            submitBtn.disabled = true;
+
+            try {
+                const response = await axios.post('/api/login', {
+                    username: username,
+                    password: password
+                });
+
+                if (response.data.success) {
+                    alert('登入成功！現在可以同步訂單。');
+                    closeLoginModal();
+                    
+                    // Automatically sync orders after login
+                    const syncResponse = await axios.post('/api/scrape', {
+                        cookies: response.data.cookies
+                    });
+                    
+                    alert(`同步完成！\n新訂單：${syncResponse.data.new_orders}\n更新訂單：${syncResponse.data.updated_orders}`);
+                    await loadOrders();
+                    await loadStats();
+                } else {
+                    alert('登入失敗：' + response.data.message);
+                }
+            } catch (error) {
+                alert('登入錯誤：' + (error.response?.data?.message || error.message));
+            } finally {
+                submitBtn.textContent = originalText;
+                submitBtn.disabled = false;
             }
         }
 
@@ -431,18 +528,18 @@ Loading notes...
             const cookies = document.getElementById('cookies-input').value;
             
             if (!cookies.trim()) {
-                alert('Please enter cookies');
+                alert('請輸入 Cookies');
                 return;
             }
 
             try {
                 const response = await axios.post('/api/scrape', { cookies });
                 closeScrapeModal();
-                alert(`Sync complete!\nNew: ${response.data.new_orders}\nUpdated: ${response.data.updated_orders}`);
+                alert(`同步完成！\n新訂單：${response.data.new_orders}\n更新訂單：${response.data.updated_orders}`);
                 await loadOrders();
                 await loadStats();
             } catch (error) {
-                alert('Error syncing: ' + error.message);
+                alert('同步錯誤：' + error.message);
             }
         }
 
@@ -474,9 +571,9 @@ Loading notes...
                 event.target.reset();
                 await loadOrders();
                 await loadStats();
-                alert('Order added successfully');
+                alert('訂單已新增');
             } catch (error) {
-                alert('Error adding order: ' + error.message);
+                alert('新增訂單錯誤：' + error.message);
             }
         }
 
@@ -492,7 +589,7 @@ Loading notes...
             // Add user message
             messagesDiv.innerHTML += `
                 <div class="mb-4 text-right">
-                    <div class="inline-block bg-blue-600 text-white rounded-lg px-4 py-2 max-w-md">
+                    <div class="inline-block bg-orange-600 text-white rounded-lg px-4 py-2 max-w-md">
                         ${query}
                     </div>
                 </div>
@@ -539,7 +636,7 @@ Loading notes...
                 messagesDiv.innerHTML += `
                     <div class="mb-4">
                         <div class="inline-block bg-red-100 text-red-600 rounded-lg px-4 py-2 max-w-md">
-                            Error: ${error.message}
+                            錯誤：${error.message}
                         </div>
                     </div>
                 `;
@@ -553,7 +650,7 @@ Loading notes...
                 const forwardersDiv = document.getElementById('forwarders-list');
                 
                 if (response.data.forwarders.length === 0) {
-                    forwardersDiv.innerHTML = '<div class="text-center text-gray-400 py-8">No consolidations yet</div>';
+                    forwardersDiv.innerHTML = '<div class="text-center text-gray-400 py-8">目前沒有集運單</div>';
                     return;
                 }
 
@@ -565,16 +662,16 @@ Loading notes...
                                 <span class="status-badge ${getStatusClass(fw.status)}">${formatStatus(fw.status)}</span>
                             </div>
                             <button onclick="exportCustoms('${fw.tracking_no}')" class="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700">
-                                Export Customs
+                                匯出報關單
                             </button>
                         </div>
                         <div class="text-sm text-gray-600">
-                            ${fw.consolidation_date ? `Created: ${new Date(fw.consolidation_date).toLocaleDateString()}` : ''}
+                            ${fw.consolidation_date ? `建立日期：${new Date(fw.consolidation_date).toLocaleDateString('zh-TW')}` : ''}
                         </div>
                     </div>
                 `).join('');
             } catch (error) {
-                console.error('Error loading forwarders:', error);
+                console.error('載入集運單錯誤:', error);
             }
         }
 
@@ -593,6 +690,11 @@ Loading notes...
                 const response = await axios.get('/api/orders?status=received');
                 const listDiv = document.getElementById('received-orders-list');
                 
+                if (response.data.orders.length === 0) {
+                    listDiv.innerHTML = '<div class="text-gray-400 text-center py-4">目前沒有已到貨的訂單</div>';
+                    return;
+                }
+                
                 listDiv.innerHTML = response.data.orders.map(order => `
                     <label class="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
                         <input type="checkbox" value="${order.order_id}" onchange="toggleOrderSelection('${order.order_id}')">
@@ -600,7 +702,7 @@ Loading notes...
                     </label>
                 `).join('');
             } catch (error) {
-                console.error('Error loading received orders:', error);
+                console.error('載入已到貨訂單錯誤:', error);
             }
         }
 
@@ -617,12 +719,12 @@ Loading notes...
             const trackingNo = document.getElementById('forwarder-tracking').value.trim();
             
             if (!trackingNo) {
-                alert('Please enter tracking number');
+                alert('請輸入集運單號');
                 return;
             }
 
             if (selectedOrderIds.length === 0) {
-                alert('Please select at least one order');
+                alert('請至少選擇一個訂單');
                 return;
             }
 
@@ -633,10 +735,10 @@ Loading notes...
                 });
                 
                 closeConsolidateModal();
-                alert('Consolidation created successfully');
+                alert('集運單建立成功');
                 await loadForwarders();
             } catch (error) {
-                alert('Error creating consolidation: ' + error.message);
+                alert('建立集運單錯誤：' + error.message);
             }
         }
 
@@ -652,17 +754,17 @@ Loading notes...
         async function restoreBackup(file) {
             if (!file) return;
             
-            if (!confirm('This will restore the database. Continue?')) return;
+            if (!confirm('這將還原資料庫，確定繼續嗎？')) return;
 
             const formData = new FormData();
             formData.append('file', file);
 
             try {
                 await axios.post('/api/backup/restore', formData);
-                alert('Backup restored successfully! Reloading...');
+                alert('備份還原成功！重新載入中...');
                 location.reload();
             } catch (error) {
-                alert('Error restoring backup: ' + error.message);
+                alert('還原備份錯誤：' + error.message);
             }
         }
 
@@ -679,14 +781,14 @@ Loading notes...
                 const response = await axios.get('/api/notes');
                 document.getElementById('notes-content').textContent = response.data.content;
             } catch (error) {
-                console.error('Error loading notes:', error);
+                console.error('載入備忘錄錯誤:', error);
             }
         }
 
         async function copyNotes() {
             const notesText = document.getElementById('notes-content').textContent;
             await navigator.clipboard.writeText(notesText);
-            alert('Notes copied to clipboard!');
+            alert('備忘錄已複製到剪貼簿！');
         }
 
         async function loadLogs() {
@@ -696,13 +798,13 @@ Loading notes...
                 
                 logsDiv.innerHTML = response.data.logs.map(log => `
                     <div class="text-sm p-2 bg-gray-50 rounded">
-                        <span class="text-gray-500">${new Date(log.created_at).toLocaleString()}</span>
+                        <span class="text-gray-500">${new Date(log.created_at).toLocaleString('zh-TW')}</span>
                         <span class="ml-2 px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">${log.log_type}</span>
                         <div class="mt-1">${log.message}</div>
                     </div>
                 `).join('');
             } catch (error) {
-                console.error('Error loading logs:', error);
+                console.error('載入日誌錯誤:', error);
             }
         }
     </script>
