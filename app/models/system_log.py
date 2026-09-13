@@ -18,7 +18,7 @@ class SystemLog(Base):
     message = Column(Text, nullable=False)
     
     # Additional metadata (JSON string)
-    metadata = Column(Text, nullable=True)
+    meta_data = Column(Text, nullable=True)
     
     # Timestamp
     created_at = Column(DateTime, server_default=func.now(), index=True)
@@ -29,6 +29,6 @@ class SystemLog(Base):
             "log_type": self.log_type,
             "order_id": self.order_id,
             "message": self.message,
-            "metadata": self.metadata,
+            "meta_data": self.meta_data,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }

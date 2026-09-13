@@ -10,5 +10,5 @@ services:
       - ./data:/app/data
       - ./app:/app/app
     env_file:
-      - ./netbox-helper/.env
+      - /env/.env
     restart: unless-stopped
