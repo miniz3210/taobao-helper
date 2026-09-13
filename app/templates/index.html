@@ -209,44 +209,41 @@
             </div>
         </main>
 
-        <!-- Login Modal -->
+        <!-- QR Code Login Modal -->
         <div id="login-modal" class="modal hidden">
             <div class="modal-content max-w-md">
-                <h3 class="text-xl font-bold mb-4">🔐 淘寶帳號登入</h3>
-                <p class="text-gray-600 mb-4">使用您的淘寶帳號密碼登入：</p>
-                <form onsubmit="loginTaobao(event)" class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">帳號（手機號碼/會員名）</label>
-                        <input 
-                            type="text" 
-                            id="login-username" 
-                            required
-                            placeholder="輸入淘寶帳號"
-                            class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                        />
+                <h3 class="text-xl font-bold mb-4">📱 淘寶 QR Code 登入</h3>
+                
+                <!-- QR Code Display -->
+                <div id="qr-container" class="text-center mb-4">
+                    <div id="qr-loading" class="py-8">
+                        <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
+                        <p class="mt-4 text-gray-600">正在生成 QR Code...</p>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">密碼</label>
-                        <input 
-                            type="password" 
-                            id="login-password" 
-                            required
-                            placeholder="輸入密碼"
-                            class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                        />
-                    </div>
-                    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-3 text-sm">
-                        <p class="text-yellow-700">⚠️ 提醒：如果帳號開啟了驗證碼或二步驗證，可能需要手動輸入 Cookies。</p>
-                    </div>
-                    <div class="flex justify-end gap-2">
-                        <button type="button" onclick="closeLoginModal()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
-                            取消
-                        </button>
-                        <button type="submit" class="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700">
-                            登入
-                        </button>
-                    </div>
-                </form>
+                    <img id="qr-image" class="hidden mx-auto max-w-full rounded-lg shadow-lg" alt="QR Code">
+                </div>
+                
+                <!-- Status Message -->
+                <div id="qr-status" class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4 hidden">
+                    <p class="text-blue-700 font-semibold">📱 請使用淘寶 App 掃描 QR Code</p>
+                    <p class="text-blue-600 text-sm mt-1">開啟淘寶 App → 掃一掃 → 掃描螢幕上的 QR Code</p>
+                </div>
+                
+                <div id="qr-success" class="bg-green-50 border-l-4 border-green-400 p-4 mb-4 hidden">
+                    <p class="text-green-700 font-semibold">✅ 登入成功！</p>
+                    <p class="text-green-600 text-sm mt-1">正在同步訂單資料...</p>
+                </div>
+                
+                <div id="qr-error" class="bg-red-50 border-l-4 border-red-400 p-4 mb-4 hidden">
+                    <p class="text-red-700 font-semibold">❌ 登入失敗</p>
+                    <p id="qr-error-message" class="text-red-600 text-sm mt-1"></p>
+                </div>
+                
+                <div class="flex justify-end gap-2">
+                    <button onclick="closeLoginModal()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
+                        取消
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -466,53 +463,91 @@
         }
 
         // Login modal
-        function showLoginModal() {
+        // QR Code Login
+        let qrPollingInterval = null;
+
+        async function showLoginModal() {
             document.getElementById('login-modal').classList.remove('hidden');
+            
+            // Reset UI
+            document.getElementById('qr-loading').classList.remove('hidden');
+            document.getElementById('qr-image').classList.add('hidden');
+            document.getElementById('qr-status').classList.add('hidden');
+            document.getElementById('qr-success').classList.add('hidden');
+            document.getElementById('qr-error').classList.add('hidden');
+            
+            // Start QR login
+            try {
+                const response = await axios.post('/api/login/qr/start');
+                
+                if (response.data.success) {
+                    // Show QR code
+                    document.getElementById('qr-loading').classList.add('hidden');
+                    document.getElementById('qr-image').src = response.data.qr_image;
+                    document.getElementById('qr-image').classList.remove('hidden');
+                    document.getElementById('qr-status').classList.remove('hidden');
+                    
+                    // Start polling for login status
+                    startQRPolling();
+                } else {
+                    showQRError(response.data.message);
+                }
+            } catch (error) {
+                showQRError('啟動 QR 登入失敗：' + error.message);
+            }
         }
 
         function closeLoginModal() {
             document.getElementById('login-modal').classList.add('hidden');
+            stopQRPolling();
+            
+            // Cancel login on backend
+            axios.post('/api/login/qr/cancel').catch(err => console.error('Cancel error:', err));
         }
 
-        async function loginTaobao(event) {
-            event.preventDefault();
-            
-            const username = document.getElementById('login-username').value;
-            const password = document.getElementById('login-password').value;
-
-            // Show loading
-            const submitBtn = event.target.querySelector('button[type="submit"]');
-            const originalText = submitBtn.textContent;
-            submitBtn.textContent = '登入中...';
-            submitBtn.disabled = true;
-
-            try {
-                const response = await axios.post('/api/login', {
-                    username: username,
-                    password: password
-                });
-
-                if (response.data.success) {
-                    alert('登入成功！現在可以同步訂單。');
-                    closeLoginModal();
+        function startQRPolling() {
+            // Poll every 2 seconds
+            qrPollingInterval = setInterval(async () => {
+                try {
+                    const response = await axios.get('/api/login/qr/status');
                     
-                    // Automatically sync orders after login
-                    const syncResponse = await axios.post('/api/scrape', {
-                        cookies: response.data.cookies
-                    });
-                    
-                    alert(`同步完成！\n新訂單：${syncResponse.data.new_orders}\n更新訂單：${syncResponse.data.updated_orders}`);
-                    await loadOrders();
-                    await loadStats();
-                } else {
-                    alert('登入失敗：' + response.data.message);
+                    if (response.data.logged_in) {
+                        // Success!
+                        stopQRPolling();
+                        document.getElementById('qr-status').classList.add('hidden');
+                        document.getElementById('qr-success').classList.remove('hidden');
+                        
+                        // Sync orders with the cookies
+                        const syncResponse = await axios.post('/api/scrape', {
+                            cookies: response.data.cookies
+                        });
+                        
+                        setTimeout(() => {
+                            closeLoginModal();
+                            alert(`登入並同步成功！\n新訂單：${syncResponse.data.new_orders}\n更新訂單：${syncResponse.data.updated_orders}`);
+                            loadOrders();
+                            loadStats();
+                        }, 1500);
+                    }
+                } catch (error) {
+                    console.error('Polling error:', error);
                 }
-            } catch (error) {
-                alert('登入錯誤：' + (error.response?.data?.message || error.message));
-            } finally {
-                submitBtn.textContent = originalText;
-                submitBtn.disabled = false;
+            }, 2000);
+        }
+
+        function stopQRPolling() {
+            if (qrPollingInterval) {
+                clearInterval(qrPollingInterval);
+                qrPollingInterval = null;
             }
+        }
+
+        function showQRError(message) {
+            document.getElementById('qr-loading').classList.add('hidden');
+            document.getElementById('qr-image').classList.add('hidden');
+            document.getElementById('qr-status').classList.add('hidden');
+            document.getElementById('qr-error').classList.remove('hidden');
+            document.getElementById('qr-error-message').textContent = message;
         }
 
         // Scrape modal

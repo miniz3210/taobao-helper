@@ -14,3 +14,4 @@ python-dateutil
 litellm
 jinja2
 aiofiles
+playwright

@@ -24,7 +24,7 @@ from app.modules.taobao_scraper import TaobaoScraper
 from app.modules.notes_generator import NotesGenerator
 from app.modules.consolidation_manager import ConsolidationManager
 from app.modules.ai_assistant import AIQueryAssistant
-from app.modules.taobao_login import TaobaoLogin
+from app.modules.taobao_qr_login import TaobaoQRLogin
 
 
 # Initialize FastAPI app
@@ -54,7 +54,7 @@ taobao_scraper = TaobaoScraper(image_archiver)
 notes_generator = NotesGenerator()
 consolidation_manager = ConsolidationManager()
 ai_assistant = AIQueryAssistant()
-taobao_login = TaobaoLogin()
+qr_login = TaobaoQRLogin()
 
 
 # Pydantic models for request/response
@@ -71,11 +71,6 @@ class OrderCreate(BaseModel):
 
 class ScrapeRequest(BaseModel):
     cookies: str
-
-
-class LoginRequest(BaseModel):
-    username: str
-    password: str
 
 
 class AIQueryRequest(BaseModel):
@@ -189,13 +184,24 @@ async def delete_order(order_id: str, session: AsyncSession = Depends(get_sessio
 
 # ==================== SCRAPING ENDPOINTS ====================
 
-@app.post("/api/login")
-async def login_taobao(request: LoginRequest):
-    """Login to Taobao with username and password"""
-    result = await taobao_login.login_with_account(
-        request.username,
-        request.password
-    )
+@app.post("/api/login/qr/start")
+async def start_qr_login():
+    """Start QR code login process"""
+    result = await qr_login.start_qr_login()
+    return result
+
+
+@app.get("/api/login/qr/status")
+async def check_qr_login_status():
+    """Check QR code login status"""
+    result = await qr_login.check_login_status()
+    return result
+
+
+@app.post("/api/login/qr/cancel")
+async def cancel_qr_login():
+    """Cancel QR code login"""
+    result = await qr_login.cancel_login()
     return result
 
 
