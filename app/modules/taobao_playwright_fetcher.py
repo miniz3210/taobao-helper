@@ -40,8 +40,15 @@ class TaobaoPlaywrightFetcher:
             self.playwright = await async_playwright().start()
             self.browser = await self.playwright.chromium.launch(headless=True)
             
-            # Create context with cookies
-            context = await self.browser.new_context(cookies=cookies)
+            # Create context WITHOUT cookies first
+            context = await self.browser.new_context(
+                viewport={'width': 1280, 'height': 720},
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            )
+            
+            # Add cookies to context
+            await context.add_cookies(cookies)
+            
             self.page = await context.new_page()
             
             # Navigate to orders page
