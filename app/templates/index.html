@@ -528,7 +528,34 @@
         async function showLoginModal() {
             document.getElementById('login-modal').classList.remove('hidden');
             
-            // Reset UI
+            // Reset UI - show tabs but don't auto-start QR login
+            document.getElementById('qr-loading').classList.add('hidden');
+            document.getElementById('qr-image').classList.add('hidden');
+            document.getElementById('qr-status').classList.add('hidden');
+            document.getElementById('qr-success').classList.add('hidden');
+            document.getElementById('qr-error').classList.add('hidden');
+            
+            // Reset account login form
+            document.getElementById('account-username').value = '';
+            document.getElementById('account-password').value = '';
+            document.getElementById('account-status').classList.add('hidden');
+            document.getElementById('account-login-btn').disabled = false;
+            document.getElementById('account-login-btn').textContent = '登入';
+            
+            // Default to account login tab (more stable)
+            switchLoginMethod('account');
+        }
+
+        function closeLoginModal() {
+            document.getElementById('login-modal').classList.add('hidden');
+            stopQRPolling();
+            
+            // Cancel login on backend
+            axios.post('/api/login/qr/cancel').catch(err => console.error('Cancel error:', err));
+        }
+        
+        async function startQRLogin() {
+            // Reset QR UI
             document.getElementById('qr-loading').classList.remove('hidden');
             document.getElementById('qr-image').classList.add('hidden');
             document.getElementById('qr-status').classList.add('hidden');
@@ -554,14 +581,6 @@
             } catch (error) {
                 showQRError('啟動 QR 登入失敗：' + error.message);
             }
-        }
-
-        function closeLoginModal() {
-            document.getElementById('login-modal').classList.add('hidden');
-            stopQRPolling();
-            
-            // Cancel login on backend
-            axios.post('/api/login/qr/cancel').catch(err => console.error('Cancel error:', err));
         }
 
         function startQRPolling() {
@@ -674,7 +693,7 @@
                 // Start QR login if not already started
                 if (document.getElementById('qr-image').classList.contains('hidden') && 
                     document.getElementById('qr-loading').classList.contains('hidden')) {
-                    showLoginModal();
+                    startQRLogin();
                 }
             } else if (method === 'account') {
                 document.getElementById('qr-login-section').classList.add('hidden');
