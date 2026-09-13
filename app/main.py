@@ -195,7 +195,21 @@ async def start_qr_login():
 async def check_qr_login_status():
     """Check QR code login status"""
     result = await qr_login.check_login_status()
+    
+    # If login successful, schedule cleanup after response is sent
+    if result.get("logged_in"):
+        import asyncio
+        asyncio.create_task(delayed_cleanup())
+    
     return result
+
+
+async def delayed_cleanup():
+    """Cleanup browser after a delay to ensure response is sent"""
+    import asyncio
+    await asyncio.sleep(2)
+    await qr_login.cleanup()
+    print("Browser cleaned up after successful login")
 
 
 @app.post("/api/login/qr/cancel")
@@ -203,6 +217,24 @@ async def cancel_qr_login():
     """Cancel QR code login"""
     result = await qr_login.cancel_login()
     return result
+
+
+@app.get("/api/login/saved-cookies")
+async def get_saved_cookies():
+    """Get saved cookies from file"""
+    cookies = qr_login.load_saved_cookies()
+    if cookies:
+        return {
+            "success": True,
+            "cookies": cookies,
+            "message": "已載入儲存的 Cookies"
+        }
+    else:
+        return {
+            "success": False,
+            "cookies": None,
+            "message": "沒有找到儲存的 Cookies"
+        }
 
 
 @app.post("/api/scrape")

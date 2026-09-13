@@ -181,7 +181,8 @@ class TaobaoQRLogin:
                 
                 print(f"Login successful, returning cookies (length: {len(cookies_str)})")
                 
-                await self.cleanup()
+                # DON'T cleanup yet - let the response be sent first
+                # Cleanup will happen after frontend receives the response
                 
                 return {
                     "status": "success",

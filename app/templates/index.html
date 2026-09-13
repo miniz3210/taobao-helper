@@ -81,6 +81,9 @@
                             <button onclick="showLoginModal()" class="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700">
                                 🔐 淘寶登入
                             </button>
+                            <button onclick="syncWithSavedCookies()" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">
+                                💾 使用已儲存登入
+                            </button>
                             <button onclick="showScrapeModal()" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
                                 🔄 同步訂單
                             </button>
@@ -508,9 +511,11 @@
         function startQRPolling() {
             // Poll every 2 seconds
             console.log('Starting QR polling...');
+            let pollCount = 0;
             qrPollingInterval = setInterval(async () => {
                 try {
-                    console.log('Polling login status...');
+                    pollCount++;
+                    console.log(`Polling login status... (attempt ${pollCount})`);
                     const response = await axios.get('/api/login/qr/status');
                     console.log('Login status response:', response.data);
                     
@@ -523,19 +528,59 @@
                         
                         // Sync orders with the cookies
                         console.log('Starting order sync...');
-                        const syncResponse = await axios.post('/api/scrape', {
-                            cookies: response.data.cookies
-                        });
-                        console.log('Sync response:', syncResponse.data);
-                        
-                        setTimeout(() => {
-                            closeLoginModal();
-                            alert(`登入並同步成功！\n新訂單：${syncResponse.data.new_orders}\n更新訂單：${syncResponse.data.updated_orders}`);
-                            loadOrders();
-                            loadStats();
-                        }, 1500);
+                        try {
+                            const syncResponse = await axios.post('/api/scrape', {
+                                cookies: response.data.cookies
+                            });
+                            console.log('Sync response:', syncResponse.data);
+                            
+                            setTimeout(() => {
+                                closeLoginModal();
+                                alert(`登入並同步成功！\n新訂單：${syncResponse.data.new_orders}\n更新訂單：${syncResponse.data.updated_orders}`);
+                                loadOrders();
+                                loadStats();
+                            }, 1500);
+                        } catch (syncError) {
+                            console.error('Sync failed:', syncError);
+                            // Show error but close modal
+                            setTimeout(() => {
+                                closeLoginModal();
+                                alert('登入成功但同步失敗。請手動點擊「同步訂單」。\n\nCookies 已儲存，您可以稍後再試。');
+                            }, 1000);
+                        }
                     } else {
                         console.log('Still waiting for login...');
+                    }
+                    
+                    // Timeout after 60 seconds (30 polls)
+                    if (pollCount >= 30) {
+                        console.log('Polling timeout - checking for saved cookies');
+                        stopQRPolling();
+                        
+                        // Try to load saved cookies as fallback
+                        try {
+                            const savedResponse = await axios.get('/api/login/saved-cookies');
+                            if (savedResponse.data.success) {
+                                console.log('Found saved cookies, attempting sync');
+                                document.getElementById('qr-status').classList.add('hidden');
+                                document.getElementById('qr-success').classList.remove('hidden');
+                                
+                                const syncResponse = await axios.post('/api/scrape', {
+                                    cookies: savedResponse.data.cookies
+                                });
+                                
+                                setTimeout(() => {
+                                    closeLoginModal();
+                                    alert(`已使用儲存的 Cookies 同步！\n新訂單：${syncResponse.data.new_orders}\n更新訂單：${syncResponse.data.updated_orders}`);
+                                    loadOrders();
+                                    loadStats();
+                                }, 1500);
+                            } else {
+                                showQRError('QR Code 已過期，請重新嘗試');
+                            }
+                        } catch (error) {
+                            showQRError('登入超時，請重新嘗試');
+                        }
                     }
                 } catch (error) {
                     console.error('Polling error:', error);
@@ -557,6 +602,30 @@
             document.getElementById('qr-status').classList.add('hidden');
             document.getElementById('qr-error').classList.remove('hidden');
             document.getElementById('qr-error-message').textContent = message;
+        }
+
+        // Sync with saved cookies
+        async function syncWithSavedCookies() {
+            try {
+                console.log('Loading saved cookies...');
+                const response = await axios.get('/api/login/saved-cookies');
+                
+                if (response.data.success) {
+                    console.log('Saved cookies found, syncing...');
+                    const syncResponse = await axios.post('/api/scrape', {
+                        cookies: response.data.cookies
+                    });
+                    
+                    alert(`使用已儲存登入同步成功！\n新訂單：${syncResponse.data.new_orders}\n更新訂單：${syncResponse.data.updated_orders}`);
+                    await loadOrders();
+                    await loadStats();
+                } else {
+                    alert('沒有找到已儲存的登入資訊，請先使用 QR Code 登入');
+                }
+            } catch (error) {
+                console.error('Sync with saved cookies error:', error);
+                alert('同步失敗：' + (error.response?.data?.detail || error.message));
+            }
         }
 
         // Scrape modal
