@@ -6,7 +6,7 @@ import asyncio
 import json
 import base64
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from playwright.async_api import async_playwright, Browser, Page, TimeoutError as PlaywrightTimeout
 
 
