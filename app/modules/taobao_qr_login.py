@@ -22,6 +22,8 @@ class TaobaoQRLogin:
         self.login_status = "idle"  # idle, pending, success, failed
         self.qr_image_base64 = None
         self.cookies_dict = {}
+        self._status_check_lock = asyncio.Lock()  # Prevent concurrent status checks
+        self._navigation_done = False  # Track if we've already navigated to orders page
         
     async def start_qr_login(self) -> Dict[str, any]:
         """
@@ -135,136 +137,151 @@ class TaobaoQRLogin:
         Check if user has scanned QR code and logged in
         Returns: {"status": str, "cookies": str, "message": str}
         """
-        if not self.page:
-            print("No page instance available")
-            return {
-                "status": "idle",
-                "logged_in": False,
-                "message": "未在登入流程中"
-            }
-        
-        if self.login_status != "pending":
-            print(f"Login status is not pending: {self.login_status}")
-            return {
-                "status": self.login_status,
-                "logged_in": False,
-                "message": "未在登入流程中"
-            }
-        
-        try:
-            # Get current cookies
-            cookies = await self.page.context.cookies()
-            print(f"Current cookies count: {len(cookies)}")
+        # Use lock to prevent concurrent status checks
+        async with self._status_check_lock:
+            if not self.page:
+                print("No page instance available")
+                return {
+                    "status": "idle",
+                    "logged_in": False,
+                    "message": "未在登入流程中"
+                }
             
-            # Check for Taobao session cookies
-            cookie_dict = {cookie['name']: cookie['value'] for cookie in cookies}
+            # If already successful, return cached result
+            if self.login_status == "success":
+                cookies_str = "; ".join([f"{k}={v}" for k, v in self.cookies_dict.items()])
+                return {
+                    "status": "success",
+                    "logged_in": True,
+                    "cookies": cookies_str,
+                    "message": "登入成功！",
+                    "keep_browser": False  # Already processed
+                }
             
-            # Key session cookies that indicate successful login
-            session_indicators = ['cookie2', 'unb', 't', '_tb_token_']
+            if self.login_status != "pending":
+                print(f"Login status is not pending: {self.login_status}")
+                return {
+                    "status": self.login_status,
+                    "logged_in": False,
+                    "message": "未在登入流程中"
+                }
             
-            found_indicators = [key for key in session_indicators if key in cookie_dict]
-            has_session = len(found_indicators) > 0
-            
-            print(f"Session indicators found: {found_indicators}")
-            
-            if has_session:
-                # QR scan detected! Now handle post-login flow
-                print(f"Session cookies detected: {list(cookie_dict.keys())}")
-                
-                # Handle "Keep Signed In" modal if it appears
-                print("Checking for post-login modal...")
-                try:
-                    confirm_btn = self.page.locator('text="知道了"')
-                    if await confirm_btn.is_visible(timeout=5000):
-                        print("Found '知道了' button, clicking...")
-                        await confirm_btn.click()
-                        await asyncio.sleep(1)
-                        print("✅ Modal dismissed")
-                except Exception as e:
-                    print(f"No modal found or already dismissed: {e}")
-                
-                # Wait for navigation to complete - expect redirect to orders page
-                print("Waiting for navigation to buyertrade.taobao.com...")
-                try:
-                    await self.page.wait_for_url(
-                        lambda url: 'buyertrade.taobao.com' in url,
-                        timeout=60000,
-                        wait_until="domcontentloaded"
-                    )
-                    print(f"✅ Navigation complete: {self.page.url}")
-                except Exception as e:
-                    print(f"Navigation timeout or failed: {e}")
-                    # Try manual navigation
-                    print("Attempting manual navigation to orders page...")
-                    try:
-                        await self.page.goto(
-                            'https://buyertrade.taobao.com/trade/itemlist/list_bought_items.htm',
-                            wait_until='domcontentloaded',
-                            timeout=30000
-                        )
-                        await asyncio.sleep(2)
-                        print(f"Manual navigation complete: {self.page.url}")
-                    except Exception as nav_error:
-                        print(f"❌ Manual navigation failed: {nav_error}")
-                        return {
-                            "status": "pending",
-                            "logged_in": False,
-                            "message": "等待導航完成..."
-                        }
-                
-                # Extract cookies from the entire context after navigation
+            try:
+                # Get current cookies
                 cookies = await self.page.context.cookies()
+                print(f"Current cookies count: {len(cookies)}")
+                
+                # Check for Taobao session cookies
                 cookie_dict = {cookie['name']: cookie['value'] for cookie in cookies}
-                cookie_names = list(cookie_dict.keys())
                 
-                print(f"Final cookies after navigation: {len(cookies)} total")
-                print(f"Cookie names: {cookie_names}")
+                # Key session cookies that indicate successful login
+                session_indicators = ['cookie2', 'unb', 't', '_tb_token_']
                 
-                # Verify critical session cookies exist
-                if 'unb' in cookie_names and 'cookie2' in cookie_names:
-                    print("✅ Critical session cookies verified: unb, cookie2")
+                found_indicators = [key for key in session_indicators if key in cookie_dict]
+                has_session = len(found_indicators) > 0
+                
+                print(f"Session indicators found: {found_indicators}")
+                
+                if has_session:
+                    # QR scan detected! Now handle post-login flow
+                    print(f"Session cookies detected: {list(cookie_dict.keys())}")
                     
-                    self.login_status = "success"
-                    self.cookies_dict = cookie_dict
+                    # Handle "Keep Signed In" modal if it appears
+                    print("Checking for post-login modal...")
+                    try:
+                        confirm_btn = self.page.locator('text="知道了"')
+                        if await confirm_btn.is_visible(timeout=5000):
+                            print("Found '知道了' button, clicking...")
+                            await confirm_btn.click()
+                            await asyncio.sleep(1)
+                            print("✅ Modal dismissed")
+                    except Exception as e:
+                        print(f"No modal found or already dismissed: {e}")
                     
-                    # Save cookies to file
-                    self._save_cookies(cookies)
+                    # Wait for navigation to complete - expect redirect to orders page
+                    print("Waiting for navigation to buyertrade.taobao.com...")
+                    try:
+                        await self.page.wait_for_url(
+                            lambda url: 'buyertrade.taobao.com' in url,
+                            timeout=60000,
+                            wait_until="domcontentloaded"
+                        )
+                        print(f"✅ Navigation complete: {self.page.url}")
+                        self._navigation_done = True
+                    except Exception as e:
+                        print(f"Navigation timeout or failed: {e}")
+                        # Try manual navigation
+                        print("Attempting manual navigation to orders page...")
+                        try:
+                            await self.page.goto(
+                                'https://buyertrade.taobao.com/trade/itemlist/list_bought_items.htm',
+                                wait_until='domcontentloaded',
+                                timeout=30000
+                            )
+                            await asyncio.sleep(2)
+                            print(f"Manual navigation complete: {self.page.url}")
+                            self._navigation_done = True
+                        except Exception as nav_error:
+                            print(f"❌ Manual navigation failed: {nav_error}")
+                            return {
+                                "status": "pending",
+                                "logged_in": False,
+                                "message": "等待導航完成..."
+                            }
                     
-                    # Format cookies as string
-                    cookies_str = "; ".join([f"{k}={v}" for k, v in cookie_dict.items()])
+                    # Extract cookies from the entire context after navigation
+                    cookies = await self.page.context.cookies()
+                    cookie_dict = {cookie['name']: cookie['value'] for cookie in cookies}
+                    cookie_names = list(cookie_dict.keys())
                     
-                    print(f"Login successful, returning cookies (length: {len(cookies_str)})")
+                    print(f"Final cookies after navigation: {len(cookies)} total")
+                    print(f"Cookie names: {cookie_names}")
                     
-                    # DON'T cleanup yet - keep browser open for order fetching
-                    # The /api/scrape endpoint will use this browser session
-                    
-                    return {
-                        "status": "success",
-                        "logged_in": True,
-                        "cookies": cookies_str,
-                        "message": "登入成功！",
-                        "keep_browser": True  # Signal to keep browser open
-                    }
-                else:
-                    print(f"❌ Missing critical cookies. Found: {cookie_names}")
-                    raise Exception("Login failed: missing critical 'unb' or 'cookie2' tokens.")
-            
-            # Still waiting for scan
-            return {
-                "status": "pending",
-                "logged_in": False,
-                "message": "等待掃描中..."
-            }
-            
-        except Exception as e:
-            print(f"Check login status error: {e}")
-            import traceback
-            traceback.print_exc()
-            return {
-                "status": "pending",
-                "logged_in": False,
-                "message": "檢查登入狀態..."
-            }
+                    # Verify critical session cookies exist
+                    if 'unb' in cookie_names and 'cookie2' in cookie_names:
+                        print("✅ Critical session cookies verified: unb, cookie2")
+                        
+                        self.login_status = "success"
+                        self.cookies_dict = cookie_dict
+                        
+                        # Save cookies to file
+                        self._save_cookies(cookies)
+                        
+                        # Format cookies as string
+                        cookies_str = "; ".join([f"{k}={v}" for k, v in cookie_dict.items()])
+                        
+                        print(f"Login successful, returning cookies (length: {len(cookies_str)})")
+                        
+                        # DON'T cleanup yet - keep browser open for order fetching
+                        # The /api/scrape endpoint will use this browser session
+                        
+                        return {
+                            "status": "success",
+                            "logged_in": True,
+                            "cookies": cookies_str,
+                            "message": "登入成功！",
+                            "keep_browser": True  # Signal to keep browser open
+                        }
+                    else:
+                        print(f"❌ Missing critical cookies. Found: {cookie_names}")
+                        raise Exception("Login failed: missing critical 'unb' or 'cookie2' tokens.")
+                
+                # Still waiting for scan
+                return {
+                    "status": "pending",
+                    "logged_in": False,
+                    "message": "等待掃描中..."
+                }
+                
+            except Exception as e:
+                print(f"Check login status error: {e}")
+                import traceback
+                traceback.print_exc()
+                return {
+                    "status": "pending",
+                    "logged_in": False,
+                    "message": "檢查登入狀態..."
+                }
     
     def _save_cookies(self, cookies: list):
         """Save cookies to JSON file"""
@@ -333,6 +350,7 @@ class TaobaoQRLogin:
         """
         Fetch orders using the current browser session (after QR login)
         This must be called while the browser is still open
+        Assumes we're already on the orders page after successful login
         """
         if not self.page or self.login_status != "success":
             print("No active browser session for fetching orders")
@@ -342,23 +360,34 @@ class TaobaoQRLogin:
         all_orders = []
         
         try:
-            # Navigate to orders page
-            await self.page.goto(
-                'https://buyertrade.taobao.com/trade/itemlist/list_bought_items.htm',
-                wait_until='networkidle',
-                timeout=30000
-            )
+            # Check current URL - we should already be on orders page
+            current_url = self.page.url
+            print(f"Current page URL: {current_url}")
             
-            print(f"Page loaded: {self.page.url}")
+            # Only navigate if we're not already on the orders page
+            if 'buyertrade.taobao.com' not in current_url:
+                print("Not on orders page, navigating...")
+                try:
+                    await self.page.goto(
+                        'https://buyertrade.taobao.com/trade/itemlist/list_bought_items.htm',
+                        wait_until='domcontentloaded',
+                        timeout=30000
+                    )
+                    print(f"Navigated to: {self.page.url}")
+                except Exception as nav_error:
+                    print(f"Navigation failed: {nav_error}")
+                    return []
+            else:
+                print("✅ Already on orders page, skipping navigation")
             
             # Check if we're still logged in
             if 'login.taobao.com' in self.page.url:
                 print("❌ Session lost - redirected to login")
                 return []
             
-            print("✅ Successfully accessing orders page")
+            print("✅ Ready to extract orders from page")
             
-            # Wait for page to load
+            # Wait a moment for any dynamic content
             await self.page.wait_for_timeout(2000)
             
             # Try to extract orders from current page
@@ -370,7 +399,6 @@ class TaobaoQRLogin:
             print("Saved orders page HTML to /app/data/orders_page.html")
             
             # Simple extraction - look for order numbers in the page
-            import re
             order_ids = set(re.findall(r'\b(\d{15,})\b', content))
             
             print(f"Found {len(order_ids)} unique order IDs in page")
