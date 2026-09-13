@@ -25,6 +25,7 @@ from app.modules.notes_generator import NotesGenerator
 from app.modules.consolidation_manager import ConsolidationManager
 from app.modules.ai_assistant import AIQueryAssistant
 from app.modules.taobao_qr_login import TaobaoQRLogin
+from app.modules.taobao_playwright_fetcher import TaobaoPlaywrightFetcher
 
 
 # Initialize FastAPI app
@@ -55,6 +56,7 @@ notes_generator = NotesGenerator()
 consolidation_manager = ConsolidationManager()
 ai_assistant = AIQueryAssistant()
 qr_login = TaobaoQRLogin()
+playwright_fetcher = TaobaoPlaywrightFetcher()
 
 
 # Pydantic models for request/response
@@ -243,7 +245,20 @@ async def scrape_taobao(
     session: AsyncSession = Depends(get_session)
 ):
     """Scrape orders from Taobao using cookies"""
-    scraped_orders = await taobao_scraper.fetch_orders_from_taobao(request.cookies)
+    # Try Playwright method first (better for maintaining session)
+    try:
+        print("Attempting to fetch orders using Playwright...")
+        scraped_orders = await playwright_fetcher.fetch_orders_with_cookies(request.cookies)
+        
+        if scraped_orders:
+            print(f"Playwright fetch successful: {len(scraped_orders)} orders")
+        else:
+            print("Playwright fetch returned 0 orders, trying HTTP method...")
+            # Fallback to HTTP method
+            scraped_orders = await taobao_scraper.fetch_orders_from_taobao(request.cookies)
+    except Exception as e:
+        print(f"Playwright fetch failed: {e}, falling back to HTTP method...")
+        scraped_orders = await taobao_scraper.fetch_orders_from_taobao(request.cookies)
     
     new_count, updated_count, change_logs = await taobao_scraper.sync_orders(
         session,
