@@ -47,11 +47,19 @@ class TaobaoScraper:
         self.image_archiver = image_archiver
         self.client = httpx.AsyncClient(
             timeout=30.0,
-            follow_redirects=True,
+            follow_redirects=False,  # Don't follow redirects to detect auth issues
             headers={
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
                 'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.8',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+                'Sec-Fetch-User': '?1',
+                'Cache-Control': 'max-age=0',
                 'Referer': 'https://www.taobao.com/'
             }
         )
@@ -103,6 +111,21 @@ class TaobaoScraper:
                         print(f"Response status: {response.status_code}")
                         print(f"Response URL: {response.url}")
                         print(f"Response length: {len(response.text)} bytes")
+                        
+                        # Check for redirects (302/301 to login page)
+                        if response.status_code in [301, 302, 303, 307, 308]:
+                            location = response.headers.get('Location', '')
+                            print(f"❌ Redirect detected to: {location}")
+                            if 'login' in location:
+                                print("❌ Redirected to login - cookies are invalid or expired")
+                                return all_orders
+                            # Follow the redirect manually
+                            response = await self.client.get(
+                                location if location.startswith('http') else f"https:{location}" if location.startswith('//') else f"https://buyertrade.taobao.com{location}",
+                                cookies=cookie_dict,
+                                timeout=30.0
+                            )
+                            print(f"Followed redirect - new status: {response.status_code}")
                         
                     except Exception as e:
                         print(f"Request failed: {e}")

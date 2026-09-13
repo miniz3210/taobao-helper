@@ -194,12 +194,38 @@ async def start_qr_login():
 
 
 @app.get("/api/login/qr/status")
-async def check_qr_login_status():
+async def check_qr_login_status(session: AsyncSession = Depends(get_session)):
     """Check QR code login status"""
     result = await qr_login.check_login_status()
     
-    # If login successful, schedule cleanup after response is sent
-    if result.get("logged_in"):
+    # If login just succeeded, fetch orders immediately from the active browser
+    if result.get("logged_in") and result.get("keep_browser"):
+        print("🔄 Login successful - fetching orders from active browser session...")
+        
+        try:
+            # Fetch orders from the active QR login browser
+            scraped_orders = await qr_login.fetch_orders_from_current_session()
+            
+            print(f"📦 Fetched {len(scraped_orders)} orders from QR session")
+            
+            # Sync to database
+            if scraped_orders:
+                new_count, updated_count, change_logs = await taobao_scraper.sync_orders(
+                    session,
+                    scraped_orders
+                )
+                
+                result["orders_synced"] = True
+                result["new_orders"] = new_count
+                result["updated_orders"] = updated_count
+                print(f"✅ Synced: {new_count} new, {updated_count} updated")
+            
+        except Exception as e:
+            print(f"❌ Error fetching orders from QR session: {e}")
+            import traceback
+            traceback.print_exc()
+        
+        # Now cleanup the browser
         import asyncio
         asyncio.create_task(delayed_cleanup())
     

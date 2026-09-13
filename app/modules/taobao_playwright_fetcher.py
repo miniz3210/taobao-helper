@@ -38,12 +38,32 @@ class TaobaoPlaywrightFetcher:
             
             # Launch browser
             self.playwright = await async_playwright().start()
-            self.browser = await self.playwright.chromium.launch(headless=True)
+            self.browser = await self.playwright.chromium.launch(
+                headless=True,
+                args=[
+                    '--disable-blink-features=AutomationControlled',
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox'
+                ]
+            )
             
-            # Create context WITHOUT cookies first
+            # Create context with proper settings to avoid detection
             context = await self.browser.new_context(
-                viewport={'width': 1280, 'height': 720},
-                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                viewport={'width': 1920, 'height': 1080},
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                locale='zh-TW',
+                timezone_id='Asia/Taipei',
+                extra_http_headers={
+                    'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.8',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'Connection': 'keep-alive',
+                    'Upgrade-Insecure-Requests': '1',
+                    'Sec-Fetch-Dest': 'document',
+                    'Sec-Fetch-Mode': 'navigate',
+                    'Sec-Fetch-Site': 'none',
+                    'Sec-Fetch-User': '?1'
+                }
             )
             
             # Add cookies to context
@@ -51,13 +71,29 @@ class TaobaoPlaywrightFetcher:
             
             self.page = await context.new_page()
             
+            # Add script to hide automation
+            await self.page.add_init_script("""
+                Object.defineProperty(navigator, 'webdriver', {
+                    get: () => undefined
+                });
+                window.chrome = { runtime: {} };
+            """)
+            
+            # First, visit taobao.com to establish session
+            print("Establishing session on taobao.com...")
+            await self.page.goto('https://www.taobao.com/', wait_until='domcontentloaded', timeout=15000)
+            await self.page.wait_for_timeout(2000)
+            
             # Navigate to orders page
             print("Navigating to Taobao orders page...")
             await self.page.goto(
                 'https://buyertrade.taobao.com/trade/itemlist/list_bought_items.htm',
-                wait_until='networkidle',
+                wait_until='domcontentloaded',
                 timeout=30000
             )
+            
+            # Wait for page to settle
+            await self.page.wait_for_timeout(3000)
             
             print(f"Page loaded: {self.page.url}")
             
@@ -66,20 +102,34 @@ class TaobaoPlaywrightFetcher:
             
             if 'login.taobao.com' in self.page.url or 'loginFormData' in content:
                 print("❌ Not logged in - cookies expired or invalid")
+                # Debug: save the page
+                with open('/app/data/playwright_failed_page.html', 'w', encoding='utf-8') as f:
+                    f.write(content)
+                print("Saved failed page to /app/data/playwright_failed_page.html")
                 return all_orders
             
             print("✅ Successfully logged in!")
             
             # Wait for orders to load
             try:
-                await self.page.wait_for_selector('.bought-wrapper-mod__order-container, table.item-list, .js-order-container', timeout=10000)
+                # Wait for any order container to appear
+                await self.page.wait_for_selector(
+                    'div[class*="order-container"], table.item-list, .js-order-container, tbody[class*="order"]',
+                    timeout=10000
+                )
                 print("✅ Orders container found")
             except Exception as e:
-                print(f"⚠️  No orders container found: {e}")
-                # Save HTML for debugging
-                with open('/app/data/logged_in_page.html', 'w') as f:
-                    f.write(content)
-                print("Saved page HTML to /app/data/logged_in_page.html")
+                print(f"⚠️  No orders container found after 10s: {e}")
+                # Check if there's a "no orders" message
+                no_orders_text = await self.page.text_content('body')
+                if '暂无订单' in no_orders_text or '沒有訂單' in no_orders_text or '没有订单' in no_orders_text:
+                    print("ℹ️  Account has no orders")
+                else:
+                    # Save HTML for debugging
+                    with open('/app/data/logged_in_page.html', 'w', encoding='utf-8') as f:
+                        f.write(await self.page.content())
+                    print("Saved page HTML to /app/data/logged_in_page.html")
+                # Continue anyway - maybe orders are there but selector didn't match
             
             # Fetch all tabs
             tabs = [
@@ -94,10 +144,16 @@ class TaobaoPlaywrightFetcher:
                 print(f"\n--- Fetching tab: {tab_name} ---")
                 
                 try:
-                    await self.page.goto(tab_url, wait_until='networkidle', timeout=30000)
+                    await self.page.goto(tab_url, wait_until='domcontentloaded', timeout=30000)
                     
-                    # Wait a bit for dynamic content
-                    await self.page.wait_for_timeout(2000)
+                    # Wait for dynamic content and JavaScript execution
+                    await self.page.wait_for_timeout(3000)
+                    
+                    # Additional wait for network to be idle
+                    try:
+                        await self.page.wait_for_load_state('networkidle', timeout=5000)
+                    except:
+                        pass  # Continue even if networkidle times out
                     
                     # Parse orders from current page
                     orders = await self._parse_orders_from_current_page(tab_name)
@@ -110,6 +166,8 @@ class TaobaoPlaywrightFetcher:
                     
                 except Exception as e:
                     print(f"❌ Error fetching {tab_name}: {e}")
+                    import traceback
+                    traceback.print_exc()
                     continue
             
             print(f"\n{'='*80}")

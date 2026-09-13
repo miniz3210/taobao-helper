@@ -181,14 +181,15 @@ class TaobaoQRLogin:
                 
                 print(f"Login successful, returning cookies (length: {len(cookies_str)})")
                 
-                # DON'T cleanup yet - let the response be sent first
-                # Cleanup will happen after frontend receives the response
+                # DON'T cleanup yet - keep browser open for order fetching
+                # The /api/scrape endpoint will use this browser session
                 
                 return {
                     "status": "success",
                     "logged_in": True,
                     "cookies": cookies_str,
-                    "message": "登入成功！"
+                    "message": "登入成功！",
+                    "keep_browser": True  # Signal to keep browser open
                 }
             
             # Still waiting for scan
@@ -244,6 +245,15 @@ class TaobaoQRLogin:
             print(f"Error loading cookies: {e}")
             return None
     
+    async def cancel_login(self):
+        """Cancel the QR login process"""
+        await self.cleanup()
+        self.login_status = "idle"
+        return {
+            "success": True,
+            "message": "QR 登入已取消"
+        }
+    
     async def cleanup(self):
         """Clean up browser resources"""
         try:
@@ -262,8 +272,67 @@ class TaobaoQRLogin:
         except Exception as e:
             print(f"Cleanup error: {e}")
     
-    async def cancel_login(self):
-        """Cancel login process"""
-        self.login_status = "idle"
-        await self.cleanup()
-        return {"success": True, "message": "已取消登入"}
+    async def fetch_orders_from_current_session(self) -> List[Dict]:
+        """
+        Fetch orders using the current browser session (after QR login)
+        This must be called while the browser is still open
+        """
+        if not self.page or self.login_status != "success":
+            print("No active browser session for fetching orders")
+            return []
+        
+        print("\n=== Fetching orders from active QR login session ===")
+        all_orders = []
+        
+        try:
+            # Navigate to orders page
+            await self.page.goto(
+                'https://buyertrade.taobao.com/trade/itemlist/list_bought_items.htm',
+                wait_until='networkidle',
+                timeout=30000
+            )
+            
+            print(f"Page loaded: {self.page.url}")
+            
+            # Check if we're still logged in
+            if 'login.taobao.com' in self.page.url:
+                print("❌ Session lost - redirected to login")
+                return []
+            
+            print("✅ Successfully accessing orders page")
+            
+            # Wait for page to load
+            await self.page.wait_for_timeout(2000)
+            
+            # Try to extract orders from current page
+            content = await self.page.content()
+            
+            # Save for debugging
+            with open('/app/data/orders_page.html', 'w', encoding='utf-8') as f:
+                f.write(content)
+            print("Saved orders page HTML to /app/data/orders_page.html")
+            
+            # Simple extraction - look for order numbers in the page
+            import re
+            order_ids = set(re.findall(r'\b(\d{15,})\b', content))
+            
+            print(f"Found {len(order_ids)} unique order IDs in page")
+            
+            for order_id in list(order_ids)[:100]:  # Limit to 100 orders
+                all_orders.append({
+                    'order_id': order_id,
+                    'item_title': 'Item from QR Session',
+                    'price': 0.0,
+                    'quantity': 1,
+                    'current_status': 'pending_shipment',
+                    'seller_name': None,
+                    'seller_express_no': None,
+                    'snapshot_url': None
+                })
+            
+        except Exception as e:
+            print(f"Error fetching orders from session: {e}")
+            import traceback
+            traceback.print_exc()
+        
+        return all_orders
