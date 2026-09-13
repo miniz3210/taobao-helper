@@ -292,9 +292,38 @@ class TaobaoAccountLogin:
                 # Login successful!
                 print("✅ Login appears successful - no longer on login page")
                 
-                # Get cookies
+                # CRITICAL: Navigate to orders page to activate the session
+                print("🔑 Navigating to orders page to activate session...")
+                try:
+                    await self.page.goto(
+                        'https://buyertrade.taobao.com/trade/itemlist/list_bought_items.htm',
+                        wait_until='domcontentloaded',
+                        timeout=30000
+                    )
+                    await asyncio.sleep(3)
+                    
+                    orders_url = self.page.url
+                    print(f"Orders page URL: {orders_url}")
+                    
+                    # Check if we're still authenticated
+                    if 'login' in orders_url.lower():
+                        print("❌ Session lost when accessing orders page")
+                        await self._save_debug_page('session_lost_on_orders')
+                        return {
+                            "success": False,
+                            "cookies": None,
+                            "message": "登入成功但訪問訂單頁面時會話丟失，請稍後再試"
+                        }
+                    
+                    print("✅ Successfully accessed orders page - session is active!")
+                    
+                except Exception as e:
+                    print(f"⚠️  Failed to access orders page: {e}")
+                    # Continue anyway, cookies might still work
+                
+                # Get cookies AFTER accessing orders page
                 cookies = await self.page.context.cookies()
-                print(f"Collected {len(cookies)} cookies")
+                print(f"Collected {len(cookies)} cookies after orders page access")
                 
                 # Check for session cookies
                 cookie_dict = {cookie['name']: cookie['value'] for cookie in cookies}
@@ -313,11 +342,15 @@ class TaobaoAccountLogin:
                     # Format cookies as string
                     cookies_str = "; ".join([f"{k}={v}" for k, v in cookie_dict.items()])
                     
+                    # Don't cleanup yet - keep browser open for immediate scraping
+                    print("✅ Cookies saved with active session")
+                    
                     return {
                         "success": True,
                         "cookies": cookies_str,
                         "message": "登入成功！",
-                        "cookie_count": len(cookies)
+                        "cookie_count": len(cookies),
+                        "session_activated": True
                     }
                 else:
                     print("⚠️  Session cookies not found, login may have failed")
